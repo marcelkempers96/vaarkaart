@@ -104,17 +104,17 @@
   <div id="tabMain" class="tabcontent active" role="tabpanel" aria-labelledby="tabMainBtn">
     <div class="grid">
       <label><input id="followMe" type="checkbox"> <span data-i18n="follow">Follow me</span></label>
-      <label><input id="snapToWaterways" type="checkbox" checked> <span data-i18n="snap">Snap clicks to canal</span></label>
+      <span></span>
     </div>
 
     <div class="grid-3">
-      <label><input id="toggleWaterways" type="checkbox" checked> <span data-i18n="waterways">Waterways</span></label>
-      <label><input id="toggleLocks" type="checkbox" checked> <span data-i18n="locks">Locks</span></label>
-      <label><input id="toggleBridges" type="checkbox" checked> <span data-i18n="bridges">Bridges</span></label>
+      <label><input id="toggleWaterways" type="checkbox" checked> <span class="swatch blue"></span> <span data-i18n="waterways">Waterways</span></label>
+      <label><input id="toggleLocks" type="checkbox"> <span class="swatch orange"></span> <span data-i18n="locks">Locks</span></label>
+      <label><input id="toggleBridges" type="checkbox"> <span class="swatch green"></span> <span data-i18n="bridges">Bridges</span></label>
     </div>
     <div class="grid-3">
-      <label><input id="toggleFuel" type="checkbox" checked> <span data-i18n="fuel">Gas stations</span></label>
-      <label><input id="toggleDock" type="checkbox" checked> <span data-i18n="docking">Docking</span></label>
+      <label><input id="toggleDock" type="checkbox"> <span class="swatch gray"></span> <span data-i18n="docking">Docking</span></label>
+      <span></span>
       <span></span>
     </div>
 
@@ -305,7 +305,6 @@ function initApp() {
   const waterwaysLayer = L.geoJSON(null, { style: () => ({ color: '#3b82f6', weight: 2, opacity: 0.9 }) }).addTo(map);
   const locksLayer = L.layerGroup().addTo(map);
   const bridgesLayer = L.layerGroup().addTo(map);
-  const fuelLayer = L.layerGroup().addTo(map);
   const dockLayer = L.layerGroup().addTo(map);
   const routeLayer = L.layerGroup().addTo(map);
   const selectionLayer = L.layerGroup().addTo(map);
@@ -340,9 +339,8 @@ function initApp() {
   const toggleWaterways = $('#toggleWaterways');
   const toggleLocks = $('#toggleLocks');
   const toggleBridges = $('#toggleBridges');
-  const toggleFuel = $('#toggleFuel');
   const toggleDock = $('#toggleDock');
-  const snapToWaterways = $('#snapToWaterways');
+  
   // Tabs
   const tabMainBtn = document.getElementById('tabMainBtn');
   const tabBoatBtn = document.getElementById('tabBoatBtn');
@@ -376,7 +374,6 @@ function initApp() {
   toggleWaterways.addEventListener('change', () => toggleLayer(toggleWaterways, waterwaysLayer));
   toggleLocks    .addEventListener('change', () => toggleLayer(toggleLocks, locksLayer));
   toggleBridges  .addEventListener('change', () => toggleLayer(toggleBridges, bridgesLayer));
-  toggleFuel     .addEventListener('change', () => toggleLayer(toggleFuel, fuelLayer));
   toggleDock     .addEventListener('change', () => toggleLayer(toggleDock, dockLayer));
   function toggleLayer(ctrl, layer) { ctrl.checked ? layer.addTo(map) : map.removeLayer(layer); }
 
@@ -453,13 +450,6 @@ function initApp() {
     const bbox = bboxString(b);
     return `[
       out:json][timeout:40];(
-        node["amenity"="fuel"]["fuel:marine"="yes"](${bbox});
-        node["amenity"="fuel"]["boat"="yes"](${bbox});
-        node["amenity"="fuel"]["seamark:type"="harbour"](${bbox});
-        node["seamark:type"="harbour"]["seamark:harbour:category"~"fuel|service"](${bbox});
-        node["seamark:small_craft_facility"~"fuel|slipway|boatyard"](${bbox});
-        node["shop"="boat"]["service:fuel"="yes"](${bbox});
-
         node["leisure"="marina"](${bbox});
         way["leisure"="marina"](${bbox});
         node["seamark:type"="harbour"]["seamark:harbour:category"~"marina|yacht_harbour"](${bbox});
@@ -561,15 +551,14 @@ function initApp() {
       else continue;
 
       const harbourCats = String(tags['seamark:harbour:category']||'');
-      const isFuel = tags.amenity === 'fuel' || tags['fuel:marine'] === 'yes' || tags.boat === 'yes' || /fuel|service/.test(harbourCats) || tags['seamark:small_craft_facility']?.includes('fuel') || tags['service:fuel'] === 'yes';
       const isDock = tags.mooring === 'yes' || tags.leisure === 'marina' || tags['seamark:type'] === 'pontoon' || /marina|yacht_harbour/.test(harbourCats);
-      const color = isFuel ? '#8b5cf6' : '#6b7280';
-      if (!isFuel && !isDock) continue;
+      const color = '#6b7280';
+      if (!isDock) continue;
       const marker = L.circleMarker([lat, lon], { radius: 5, color, weight: 2, fillOpacity: 0.8 });
-      const title = isFuel ? 'Fuel' : 'Docking';
+      const title = 'Docking';
       const details = Object.entries(tags).map(([k,v]) => `<div><strong>${k}</strong>: ${v}</div>`).slice(0, 20).join('');
       marker.bindPopup(`<div><strong>${title}</strong>${details}</div>`);
-      (isFuel ? fuelLayer : dockLayer).addLayer(marker);
+      dockLayer.addLayer(marker);
     }
   }
 
@@ -588,12 +577,8 @@ function initApp() {
     const bigB = boundsFromSWNE(s, w, n, e);
     try {
       const key = `corr:${[s, w, n, e].map(v => v.toFixed(3)).join(',')}`;
-      const [wdata, fdData] = await Promise.all([
-        fetchOverpass(qWaterways(bigB), `w:${key}`),
-        fetchOverpass(qFuelDock(bigB), `fd:${key}`)
-      ]);
+      const wdata = await fetchOverpass(qWaterways(bigB), `w:${key}`);
       await renderWaterways(wdata);
-      renderFuelDock(fdData);
       return;
     } catch (err) {
       // Fallback: split into smaller tiles if the bbox is too large for Overpass
@@ -606,7 +591,6 @@ function initApp() {
           const key2 = `corr:${[s2, w2, n2, e2].map(v => v.toFixed(3)).join(',')}`;
           tasks.push((async () => {
             try { const wdata2 = await fetchOverpass(qWaterways(b), `w:${key2}`); await renderWaterways(wdata2); } catch {}
-            try { const fd2 = await fetchOverpass(qFuelDock(b), `fd:${key2}`); renderFuelDock(fd2); } catch {}
           })());
         }
       }
@@ -616,12 +600,12 @@ function initApp() {
 
   let fetchTimer = null;
   map.on('moveend zoomend', () => {
-    if (!toggleWaterways.checked && !toggleLocks.checked && !toggleBridges.checked && !document.getElementById('toggleFuel').checked && !document.getElementById('toggleDock').checked) return;
+    if (!toggleWaterways.checked && !toggleLocks.checked && !toggleBridges.checked && !document.getElementById('toggleDock').checked) return;
     if (map.getZoom() < 12) return;
     const key = tileKeyFromBounds(map.getBounds());
     if (toggleWaterways.checked && state.fetched.w.has(key)
       && (toggleLocks.checked || toggleBridges.checked) && state.fetched.p.has(key)
-      && (document.getElementById('toggleFuel').checked || document.getElementById('toggleDock').checked) && state.fetched.fd.has(key)) return;
+      && (document.getElementById('toggleDock').checked) && state.fetched.fd.has(key)) return;
     if (fetchTimer) clearTimeout(fetchTimer);
     fetchTimer = setTimeout(async () => {
       try {
@@ -636,7 +620,7 @@ function initApp() {
           renderPOIs(p);
           state.fetched.p.add(key);
         }
-        if (document.getElementById('toggleFuel').checked || document.getElementById('toggleDock').checked) {
+        if (document.getElementById('toggleDock').checked) {
           const fd = await fetchOverpass(qFuelDock(map.getBounds()), `fd:${key}`);
           renderFuelDock(fd);
           state.fetched.fd.add(key);
@@ -784,8 +768,8 @@ function initApp() {
     if (state.graph.segments.length === 0) { setBusy(false); setStatus(I18N[LANG].noGraph); return; }
     setStatus(I18N[LANG].routing);
 
-    const s = findNearestGraphNode(startLL, snapToWaterways.checked);
-    const e = findNearestGraphNode(endLL,   snapToWaterways.checked);
+    const s = findNearestGraphNode(startLL, true);
+    const e = findNearestGraphNode(endLL,   true);
 
     // Build compact arrays for worker
     const maxId = state.graph.nextId - 1;
