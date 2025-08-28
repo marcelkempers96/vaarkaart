@@ -80,7 +80,13 @@
   .tabcontent { display:none; }
   .tabcontent.active { display:block; }
 
-  @media (max-width: 600px) { .panel { width: 92vw; } }
+  @media (max-width: 600px) {
+    .panel {
+      left: 12px;
+      right: 12px;
+      width: auto; /* fill between equal margins */
+    }
+  }
 </style>
 </head>
 <body>
