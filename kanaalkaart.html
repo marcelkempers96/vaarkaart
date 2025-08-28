@@ -106,6 +106,7 @@
     <button class="tab-btn" id="tabMainBtn" role="tab" aria-selected="true" aria-controls="tabMain" data-i18n="tabMain">Main</button>
     <button class="tab-btn" id="tabBoatBtn" role="tab" aria-selected="false" aria-controls="tabBoat" data-i18n="tabBoat">My Boat Profile</button>
     <button class="tab-btn" id="tabSavedBtn" role="tab" aria-selected="false" aria-controls="tabSaved" data-i18n="tabSaved">Saved Routes</button>
+    <button class="tab-btn" id="tabReportsBtn" role="tab" aria-selected="false" aria-controls="tabReports" data-i18n="tabReports">Reports</button>
   </div>
 
   <div id="tabMain" class="tabcontent active" role="tabpanel" aria-labelledby="tabMainBtn">
@@ -118,7 +119,7 @@
     </div>
     <div class="grid-3">
       <label><input id="toggleDock" type="checkbox"> <span data-i18n="docking">Docking</span></label>
-      <span></span>
+      <label><input id="toggleReports" type="checkbox" checked> <span data-i18n="reportsToggle">Reports</span></label>
       <span></span>
     </div>
 
@@ -191,6 +192,34 @@
       <button id="del3"  class="warn" data-i18n="del">Del</button>
     </div>
   </div>
+
+  <div id="tabReports" class="tabcontent" role="tabpanel" aria-labelledby="tabReportsBtn">
+    <div class="grid">
+      <label><span data-i18n="selectCategory">Category</span>
+        <select id="reportCategory">
+          <option value="bridge_under_construction">Bridge under construction</option>
+          <option value="bridge_closed">Bridge closed</option>
+          <option value="lock_out_of_service">Lock out of service</option>
+          <option value="low_clearance">Low clearance</option>
+          <option value="waterway_closed">Waterway closed</option>
+          <option value="debris_hazard">Debris/hazard</option>
+          <option value="shallow_water">Shallow water</option>
+          <option value="temporary_speed_limit">Temporary speed limit</option>
+          <option value="fuel_outage">Fuel outage</option>
+          <option value="marina_closed">Marina closed</option>
+          <option value="event_regatta">Event/regatta</option>
+        </select>
+      </label>
+      <label><span data-i18n="note">Note</span>
+        <input id="reportNote" type="text" placeholder="Optional details">
+      </label>
+    </div>
+    <div class="grid">
+      <button id="pickReportBtn" class="ghost" data-i18n="pickLocation">Pick location</button>
+      <button id="submitReportBtn" class="secondary" disabled data-i18n="submitReport">Submit report</button>
+    </div>
+    <p class="small"><span data-i18n="location">Location</span>: <span id="reportLocText">—</span></p>
+  </div>
 </div>
 
 <div class="statusbar">
@@ -217,11 +246,20 @@ const I18N = {
     title: "🚤 VaarApp <span class='badge'>beta</span>",
     length:"Length (m)", width:"Width (m)", speed:"Speed (km/h)", follow:"Follow me",
     height:"Height (m)", draught:"Draught (m)",
-    tabMain:"Main", tabBoat:"My Boat Profile", tabSaved:"Saved Routes",
+    tabMain:"Main", tabBoat:"My Boat Profile", tabSaved:"Saved Routes", tabReports:"Reports",
     waterways:"Waterways", locks:"Locks", bridges:"Bridges", snap:"Snap clicks to canal",
     fuel:"Gas stations", docking:"Docking",
     locate:"Locate me", select:"Select Start/Finish", cancel:"Cancel selection",
     simulate:"Simulate", clear:"Clear route",
+    reportsToggle:"Reports",
+    selectCategory:"Category",
+    note:"Note",
+    pickLocation:"Pick location",
+    submitReport:"Submit report",
+    location:"Location",
+    reportSaved:"Report submitted.",
+    reportsLoading:"Loading reports…",
+    reportsErr:"Failed to load reports.",
     savedRoutesHdr:"Saved routes (max 3)", save:"Save", load:"Load", del:"Del",
     constraint:"Constraint < boat width",
     
@@ -242,11 +280,20 @@ const I18N = {
     title: "🚤 VaarApp <span class='badge'>beta</span>",
     length:"Lengte (m)", width:"Breedte (m)", speed:"Snelheid (km/u)", follow:"Volg mij",
     height:"Hoogte (m)", draught:"Diepgang (m)",
-    tabMain:"Hoofdmenu", tabBoat:"Mijn bootprofiel", tabSaved:"Opgeslagen routes",
+    tabMain:"Hoofdmenu", tabBoat:"Mijn bootprofiel", tabSaved:"Opgeslagen routes", tabReports:"Meldingen",
     waterways:"Waterwegen", locks:"Sluizen", bridges:"Bruggen", snap:"Kliks op kanaal vastzetten",
     fuel:"Tankstations", docking:"Aanlegplaatsen",
     locate:"Vind mijn locatie", select:"Kies Start/Bestemming", cancel:"Selectie annuleren",
     simulate:"Simuleren", clear:"Route wissen",
+    reportsToggle:"Meldingen",
+    selectCategory:"Categorie",
+    note:"Notitie",
+    pickLocation:"Locatie kiezen",
+    submitReport:"Melding verzenden",
+    location:"Locatie",
+    reportSaved:"Melding verzonden.",
+    reportsLoading:"Meldingen laden…",
+    reportsErr:"Meldingen laden mislukt.",
     savedRoutesHdr:"Opgeslagen routes (max 3)", save:"Opslaan", load:"Laden", del:"Verw.",
     constraint:"Beperking < bootbreedte",
     
@@ -318,6 +365,7 @@ function initApp() {
   const dockLayer = L.layerGroup().addTo(map);
   const routeLayer = L.layerGroup().addTo(map);
   const selectionLayer = L.layerGroup().addTo(map);
+  const reportsLayer = L.layerGroup().addTo(map);
 
   // State
   const state = {
@@ -354,14 +402,17 @@ function initApp() {
   const toggleLocks = $('#toggleLocks');
   const toggleBridges = $('#toggleBridges');
   const toggleDock = $('#toggleDock');
+  const toggleReports = $('#toggleReports');
   
   // Tabs
   const tabMainBtn = document.getElementById('tabMainBtn');
   const tabBoatBtn = document.getElementById('tabBoatBtn');
   const tabSavedBtn= document.getElementById('tabSavedBtn');
+  const tabReportsBtn= document.getElementById('tabReportsBtn');
   const tabMain    = document.getElementById('tabMain');
   const tabBoat    = document.getElementById('tabBoat');
   const tabSaved   = document.getElementById('tabSaved');
+  const tabReports = document.getElementById('tabReports');
 
   // Slots
   const slots = [
@@ -397,15 +448,80 @@ function initApp() {
     s.del .addEventListener('click', () => deleteRouteSlot(s));
   });
 
+  // Reports UI hooks
+  const reportCategory = document.getElementById('reportCategory');
+  const reportNote = document.getElementById('reportNote');
+  const pickReportBtn = document.getElementById('pickReportBtn');
+  const submitReportBtn = document.getElementById('submitReportBtn');
+  const reportLocText = document.getElementById('reportLocText');
+
+  const REPORTS_KEY = 'vaarapp-reports-v1';
+  let reportDraft = { latlng: null, marker: null };
+
+  function getStoredReports(){ try { return JSON.parse(localStorage.getItem(REPORTS_KEY)||'[]'); } catch { return []; } }
+  function setStoredReports(arr){ try { localStorage.setItem(REPORTS_KEY, JSON.stringify(arr)); } catch {} }
+  function addReport(r){ const arr = getStoredReports(); arr.push(r); setStoredReports(arr); }
+  function renderReports(){
+    reportsLayer.clearLayers();
+    const arr = getStoredReports();
+    for (const r of arr) {
+      const color = '#8b5cf6';
+      const m = L.circleMarker([r.lat, r.lng], { radius: 6, color, weight: 2, fillOpacity: 0.8 });
+      const html = `<div><strong>${r.category}</strong>${r.note?`<div>${r.note}</div>`:''}<div>${new Date(r.ts).toLocaleString()}</div></div>`;
+      m.bindPopup(html);
+      reportsLayer.addLayer(m);
+    }
+  }
+
+  function setReportsVisible(on){ on ? reportsLayer.addTo(map) : map.removeLayer(reportsLayer); }
+  toggleReports.addEventListener('change', () => setReportsVisible(toggleReports.checked));
+  setReportsVisible(toggleReports.checked);
+  renderReports();
+
+  function updateReportUI(){
+    if (reportDraft.latlng) {
+      reportLocText.textContent = `${reportDraft.latlng.lat.toFixed(5)}, ${reportDraft.latlng.lng.toFixed(5)}`;
+      submitReportBtn.disabled = false;
+    } else {
+      reportLocText.textContent = '—';
+      submitReportBtn.disabled = true;
+    }
+  }
+  function setReportMarker(ll){
+    if (reportDraft.marker) { try { reportsLayer.removeLayer(reportDraft.marker); } catch {} }
+    const icon = L.divIcon({ className:'', html:'<div style="width:12px;height:12px;border-radius:50%;background:#8b5cf6;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.3);"></div>', iconSize:[12,12] });
+    reportDraft.marker = L.marker(ll, { icon, zIndexOffset: 1400 }).addTo(reportsLayer);
+    if (reportsLayer.bringToFront) reportsLayer.bringToFront();
+  }
+  submitReportBtn.addEventListener('click', () => {
+    if (!reportDraft.latlng) return;
+    const rec = {
+      lat: reportDraft.latlng.lat,
+      lng: reportDraft.latlng.lng,
+      category: reportCategory.value,
+      note: (reportNote.value||'').trim(),
+      ts: Date.now()
+    };
+    addReport(rec);
+    renderReports();
+    // clear draft
+    reportDraft.latlng = null;
+    if (reportDraft.marker) { try { reportsLayer.removeLayer(reportDraft.marker); } catch {} reportDraft.marker = null; }
+    reportNote.value = '';
+    updateReportUI();
+    setStatus(I18N[LANG].reportSaved || 'Report submitted.');
+  });
+
   // Tab switching
   function activateTab(which){
-    const map = { main:[tabMainBtn, tabMain], boat:[tabBoatBtn, tabBoat], saved:[tabSavedBtn, tabSaved] };
-    for (const [btn, pane] of [map.main, map.boat, map.saved]) { btn.setAttribute('aria-selected','false'); pane.classList.remove('active'); }
-    const [btn, pane] = map[which]; btn.setAttribute('aria-selected','true'); pane.classList.add('active');
+    const mapTabs = { main:[tabMainBtn, tabMain], boat:[tabBoatBtn, tabBoat], saved:[tabSavedBtn, tabSaved], reports:[tabReportsBtn, tabReports] };
+    for (const key of Object.keys(mapTabs)) { const [btn, pane] = mapTabs[key]; btn.setAttribute('aria-selected','false'); pane.classList.remove('active'); }
+    const [btn, pane] = mapTabs[which]; btn.setAttribute('aria-selected','true'); pane.classList.add('active');
   }
   tabMainBtn.addEventListener('click', () => activateTab('main'));
   tabBoatBtn.addEventListener('click', () => activateTab('boat'));
   tabSavedBtn.addEventListener('click', () => activateTab('saved'));
+  tabReportsBtn.addEventListener('click', () => activateTab('reports'));
 
   map.on('click', onMapClick);
 
@@ -879,7 +995,18 @@ function initApp() {
     selectionLayer.clearLayers();
     setStatus(I18N[LANG].selCancelled);
   }
+  // Report picking mode
+  let pickingReport = false;
+  pickReportBtn.addEventListener('click', ()=>{ pickingReport = true; setStatus('Click a location for the report.'); });
   async function onMapClick(e) {
+    if (pickingReport) {
+      reportDraft.latlng = e.latlng;
+      setReportMarker(e.latlng);
+      updateReportUI();
+      pickingReport = false;
+      setStatus('');
+      return;
+    }
     if (!state.selection.active) return;
     if (!state.selection.start) {
       // Show raw click immediately
