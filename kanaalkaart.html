@@ -493,7 +493,7 @@ function initApp() {
       reportsList.innerHTML = arr.map(r=>{
         const label = (dict.reportCats && dict.reportCats[r.category]) ? dict.reportCats[r.category] : r.category;
         const loc = `${r.lat.toFixed(5)}, ${r.lng.toFixed(5)}`;
-        const delBtn = r.mine ? `<button data-del-report-list="${r.id}" class="warn" style="padding:2px 6px;margin-left:8px;">${dict.deleteReport||'Delete report'}</button>` : '';
+        const delBtn = `<button data-del-report-list="${r.id}" class="warn" style="padding:2px 6px;margin-left:8px;">${dict.deleteReport||'Delete report'}</button>`;
         return `<div style="display:flex;align-items:center;gap:8px;margin:4px 0;">
           <span style="font-weight:700;">${label}</span>
           <span>${loc}</span>
@@ -517,7 +517,7 @@ function initApp() {
       const dict = I18N[LANG];
       const label = (dict.reportCats && dict.reportCats[r.category]) ? dict.reportCats[r.category] : r.category;
       const html = `<div><strong>${label}</strong>${r.note?`<div>${r.note}</div>`:''}<div>${new Date(r.ts).toLocaleString()}</div>` +
-        `${r.mine?`<div style="margin-top:6px;"><button data-del-report="${r.id}" class="warn" style="padding:4px 8px;">${dict.deleteReport||'Delete report'}</button></div>`:''}</div>`;
+        `<div style="margin-top:6px;"><button data-del-report="${r.id}" class="warn" style="padding:4px 8px;">${dict.deleteReport||'Delete report'}</button></div></div>`;
       m.on('popupopen', (ev)=>{
         const btn = ev.popup._contentNode.querySelector('[data-del-report]');
         if (btn) {
@@ -585,6 +585,8 @@ function initApp() {
     };
     addReport(rec);
     renderReports();
+    // Ensure layer is visible so user sees it immediately
+    setReportsVisible(true);
     // clear draft
     reportDraft.latlng = null;
     if (reportDraft.marker) { try { draftLayer.removeLayer(reportDraft.marker); } catch {} reportDraft.marker = null; }
