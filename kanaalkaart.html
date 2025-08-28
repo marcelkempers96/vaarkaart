@@ -88,9 +88,12 @@
 <div id="map" aria-label="Canal map of the Netherlands"></div>
 
 <div class="panel" id="panel" role="region" aria-label="Controls">
-  <h1>
-    <span "Show on Map: /span>
-  </h1>
+      <span data-i18n="title">🚤 CanalNav NL <span class="badge">beta</span></span>
+    <select id="lang">
+      <option value="en" selected>English</option>
+      <option value="nl">Nederlands</option>
+    </select>
+
 
   <div class="tabs" role="tablist" aria-label="Panel tabs">
     <button class="tab-btn" id="tabMainBtn" role="tab" aria-selected="true" aria-controls="tabMain" data-i18n="tabMain">Main</button>
@@ -101,11 +104,7 @@
   <div id="tabMain" class="tabcontent active" role="tabpanel" aria-labelledby="tabMainBtn">
     
     <h2>
-        <span data-i18n="title">🚤 CanalNav NL <span class="badge">beta</span></span>
-        <select id="lang">
-          <option value="en" selected>English</option>
-          <option value="nl">Nederlands</option>
-        </select>
+     Show on map:
       </h2>
     
     <div class="grid-3">
