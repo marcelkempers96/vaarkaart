@@ -196,23 +196,12 @@
   <div id="tabReports" class="tabcontent" role="tabpanel" aria-labelledby="tabReportsBtn">
     <div class="grid">
       <label><span data-i18n="selectCategory">Category</span>
-        <select id="reportCategory">
-          <option value="bridge_under_construction">Bridge under construction</option>
-          <option value="bridge_closed">Bridge closed</option>
-          <option value="lock_out_of_service">Lock out of service</option>
-          <option value="low_clearance">Low clearance</option>
-          <option value="waterway_closed">Waterway closed</option>
-          <option value="debris_hazard">Debris/hazard</option>
-          <option value="shallow_water">Shallow water</option>
-          <option value="temporary_speed_limit">Temporary speed limit</option>
-          <option value="fuel_outage">Fuel outage</option>
-          <option value="marina_closed">Marina closed</option>
-          <option value="event_regatta">Event/regatta</option>
-        </select>
+        <select id="reportCategory"></select>
       </label>
-      <label><span data-i18n="note">Note</span>
-        <input id="reportNote" type="text" placeholder="Optional details">
-      </label>
+    </div>
+    <div class="grid">
+      <label style="grid-column:1 / -1"><span data-i18n="note">Note</span></label>
+      <input id="reportNote" type="text" placeholder="Optional details" style="grid-column:1 / -1">
     </div>
     <div class="grid">
       <button id="pickReportBtn" class="ghost" data-i18n="pickLocation">Pick location</button>
@@ -274,7 +263,21 @@ const I18N = {
     selCancelled:"Selection cancelled.", computing:"Computing route…",
     buildingGraph:"Building canal graph…", routing:"Routing…",
     showOnMap:"Show on Map:",
-    legendHint:"Click on points on the map to get more information."
+    legendHint:"Click on points on the map to get more information.",
+    deleteReport:"Delete report",
+    reportCats:{
+      bridge_under_construction:"Bridge Under Construction",
+      bridge_closed:"Bridge Closed",
+      lock_out_of_service:"Lock Out of Service",
+      low_clearance:"Low Clearance",
+      waterway_closed:"Waterway Closed",
+      debris_hazard:"Debris/Hazard",
+      shallow_water:"Shallow Water",
+      temporary_speed_limit:"Temporary Speed Limit",
+      fuel_outage:"Fuel Outage",
+      marina_closed:"Marina Closed",
+      event_regatta:"Event/Regatta"
+    }
   },
   nl: {
     title: "🚤 VaarApp <span class='badge'>beta</span>",
@@ -308,7 +311,21 @@ const I18N = {
     selCancelled:"Selectie geannuleerd.", computing:"Route berekenen…",
     buildingGraph:"Kanaalgrafiek opbouwen…", routing:"Routeberekening…",
     showOnMap:"Toon op kaart:",
-    legendHint:"Klik op punten op de kaart voor meer informatie."
+    legendHint:"Klik op punten op de kaart voor meer informatie.",
+    deleteReport:"Melding verwijderen",
+    reportCats:{
+      bridge_under_construction:"Brug in aanbouw",
+      bridge_closed:"Brug gesloten",
+      lock_out_of_service:"Sluis buiten gebruik",
+      low_clearance:"Lage doorvaarthoogte",
+      waterway_closed:"Waterweg afgesloten",
+      debris_hazard:"Rommeligheid/Gevaar",
+      shallow_water:"Ondiep water",
+      temporary_speed_limit:"Tijdelijke snelheidsbeperking",
+      fuel_outage:"Brandstofstoring",
+      marina_closed:"Jachthaven gesloten",
+      event_regatta:"Evenement/Regatta"
+    }
   }
 };
 let LANG = 'en';
@@ -350,6 +367,7 @@ function initApp() {
     LANG = langSel.value;
     localStorage.setItem('canalnav-lang', LANG);
     applyI18N();
+    populateReportCategories();
   });
   applyI18N();
 
@@ -467,7 +485,22 @@ function initApp() {
     for (const r of arr) {
       const color = '#8b5cf6';
       const m = L.circleMarker([r.lat, r.lng], { radius: 6, color, weight: 2, fillOpacity: 0.8 });
-      const html = `<div><strong>${r.category}</strong>${r.note?`<div>${r.note}</div>`:''}<div>${new Date(r.ts).toLocaleString()}</div></div>`;
+      const dict = I18N[LANG];
+      const label = (dict.reportCats && dict.reportCats[r.category]) ? dict.reportCats[r.category] : r.category;
+      const html = `<div><strong>${label}</strong>${r.note?`<div>${r.note}</div>`:''}<div>${new Date(r.ts).toLocaleString()}</div>` +
+        `${r.mine?`<div style="margin-top:6px;"><button data-del-report="${r.id}" class="warn" style="padding:4px 8px;">${dict.deleteReport||'Delete report'}</button></div>`:''}</div>`;
+      m.on('popupopen', (ev)=>{
+        const btn = ev.popup._contentNode.querySelector('[data-del-report]');
+        if (btn) {
+          btn.addEventListener('click', ()=>{
+            const id = btn.getAttribute('data-del-report');
+            const list = getStoredReports().filter(x=>String(x.id)!==String(id));
+            setStoredReports(list);
+            renderReports();
+            map.closePopup();
+          });
+        }
+      });
       m.bindPopup(html);
       reportsLayer.addLayer(m);
     }
@@ -477,6 +510,21 @@ function initApp() {
   toggleReports.addEventListener('change', () => setReportsVisible(toggleReports.checked));
   setReportsVisible(toggleReports.checked);
   renderReports();
+
+  function populateReportCategories(){
+    const sel = reportCategory; sel.innerHTML = '';
+    const cats = [
+      'bridge_under_construction','bridge_closed','lock_out_of_service','low_clearance','waterway_closed','debris_hazard','shallow_water','temporary_speed_limit','fuel_outage','marina_closed','event_regatta'
+    ];
+    for (const c of cats) {
+      const opt = document.createElement('option');
+      opt.value = c;
+      const dict = I18N[LANG];
+      opt.textContent = (dict.reportCats && dict.reportCats[c]) ? dict.reportCats[c] : c;
+      sel.appendChild(opt);
+    }
+  }
+  populateReportCategories();
 
   function updateReportUI(){
     if (reportDraft.latlng) {
@@ -496,11 +544,13 @@ function initApp() {
   submitReportBtn.addEventListener('click', () => {
     if (!reportDraft.latlng) return;
     const rec = {
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2,7),
       lat: reportDraft.latlng.lat,
       lng: reportDraft.latlng.lng,
       category: reportCategory.value,
       note: (reportNote.value||'').trim(),
-      ts: Date.now()
+      ts: Date.now(),
+      mine: true
     };
     addReport(rec);
     renderReports();
