@@ -98,15 +98,12 @@
 
   <div class="tabs" role="tablist" aria-label="Panel tabs">
     <button class="tab-btn" id="tabMainBtn" role="tab" aria-selected="true" aria-controls="tabMain" data-i18n="tabMain">Main</button>
-    <button class="tab-btn" id="tabBoatBtn" role="tab" aria-selected="false" aria-controls="tabBoat" data-i18n="tabBoat">Boat Profile</button>
-    <button class="tab-btn" id="tabSavedBtn" role="tab" aria-selected="false" aria-controls="tabSaved" data-i18n="tabSaved">Saved</button>
+    <button class="tab-btn" id="tabBoatBtn" role="tab" aria-selected="false" aria-controls="tabBoat" data-i18n="tabBoat">My Boat Profile</button>
+    <button class="tab-btn" id="tabSavedBtn" role="tab" aria-selected="false" aria-controls="tabSaved" data-i18n="tabSaved">Saved Routes</button>
   </div>
 
   <div id="tabMain" class="tabcontent active" role="tabpanel" aria-labelledby="tabMainBtn">
-    <div class="grid">
-      <label><input id="followMe" type="checkbox"> <span data-i18n="follow">Follow me</span></label>
-      <span></span>
-    </div>
+    <p class="small" data-i18n="showOnMap">Show on Map:</p>
 
     <div class="grid-3">
       <label><input id="toggleWaterways" type="checkbox" checked> <span data-i18n="waterways">Waterways</span></label>
@@ -136,7 +133,6 @@
       <span class="key"><span class="swatch orange"></span> <span data-i18n="locks">Locks</span></span>
       <span class="key"><span class="swatch green"></span> <span data-i18n="bridges">Bridges</span></span>
       <span class="key"><span class="swatch red"></span> <span data-i18n="constraint">Constraint &lt; boat width</span></span>
-      <span class="key"><span class="swatch purple"></span> <span data-i18n="fuel">Gas stations</span></span>
       <span class="key"><span class="swatch gray"></span> <span data-i18n="docking">Docking</span></span>
     </div>
     <p class="hint" data-i18n="hint">Important for Navigation: <b>Zoom/Scroll to load map</b> along your waterway. Click “Select Start/Finish” to compute a route along waterways only once all waterways (Blue Line) has been loaded.</p>
@@ -170,19 +166,19 @@
 
   <div id="tabSaved" class="tabcontent" role="tabpanel" aria-labelledby="tabSavedBtn">
     <h3 style="margin:12px 0 6px 0;font-size:14px;" data-i18n="savedRoutesHdr">Saved routes (max 3)</h3>
-    <div class="slot", style="margin-bottom:10px;">
+    <div class="slot" style="margin-bottom:10px;">
       <input id="slotName1" type="text" placeholder="Route 1 name">
       <button id="save1"  data-i18n="save">Save</button>
       <button id="load1" class="secondary" data-i18n="load">Load</button>
       <button id="del1"  class="warn" data-i18n="del">Del</button>
     </div>
-    <div class="slot", style="margin-bottom:10px;">
+    <div class="slot" style="margin-bottom:10px;">
       <input id="slotName2" type="text" placeholder="Route 2 name">
       <button id="save2"  data-i18n="save">Save</button>
       <button id="load2" class="secondary" data-i18n="load">Load</button>
       <button id="del2"  class="warn" data-i18n="del">Del</button>
     </div>
-    <div class="slot", style="margin-bottom:10px;">
+    <div class="slot" style="margin-bottom:10px;">
       <input id="slotName3" type="text" placeholder="Route 3 name">
       <button id="save3"  data-i18n="save">Save</button>
       <button id="load3" class="secondary" data-i18n="load">Load</button>
@@ -215,7 +211,7 @@ const I18N = {
     title: "🚤 VaarKaart <span class='badge'>beta</span>",
     length:"Length (m)", width:"Width (m)", speed:"Speed (km/h)", follow:"Follow me",
     height:"Height (m)", draught:"Draught (m)",
-    tabMain:"Main", tabBoat:"Boat Profile", tabSaved:"Saved",
+    tabMain:"Main", tabBoat:"My Boat Profile", tabSaved:"Saved Routes",
     waterways:"Waterways", locks:"Locks", bridges:"Bridges", snap:"Snap clicks to canal",
     fuel:"Gas stations", docking:"Docking",
     locate:"Locate me", select:"Select Start/Finish", cancel:"Cancel selection",
@@ -232,13 +228,14 @@ const I18N = {
     saveFail:"Failed to load saved route.", deleted:"Deleted saved route in this slot.",
     selStart:"Selection: click Start point on the map.", selFinish:"Selection: now click Destination.",
     selCancelled:"Selection cancelled.", computing:"Computing route…",
-    buildingGraph:"Building canal graph…", routing:"Routing…"
+    buildingGraph:"Building canal graph…", routing:"Routing…",
+    showOnMap:"Show on Map:"
   },
   nl: {
     title: "🚤 CanalNav NL <span class='badge'>beta</span>",
     length:"Lengte (m)", width:"Breedte (m)", speed:"Snelheid (km/u)", follow:"Volg mij",
     height:"Hoogte (m)", draught:"Diepgang (m)",
-    tabMain:"Hoofdmenu", tabBoat:"Bootprofiel", tabSaved:"Opgeslagen",
+    tabMain:"Hoofdmenu", tabBoat:"Mijn bootprofiel", tabSaved:"Opgeslagen routes",
     waterways:"Waterwegen", locks:"Sluizen", bridges:"Bruggen", snap:"Kliks op kanaal vastzetten",
     fuel:"Tankstations", docking:"Aanlegplaatsen",
     locate:"Vind mijn locatie", select:"Kies Start/Bestemming", cancel:"Selectie annuleren",
@@ -255,7 +252,8 @@ const I18N = {
     saveFail:"Laden van opgeslagen route mislukt.", deleted:"Opgeslagen route verwijderd.",
     selStart:"Selectie: klik Start op de kaart.", selFinish:"Selectie: klik nu Bestemming.",
     selCancelled:"Selectie geannuleerd.", computing:"Route berekenen…",
-    buildingGraph:"Kanaalgrafiek opbouwen…", routing:"Routeberekening…"
+    buildingGraph:"Kanaalgrafiek opbouwen…", routing:"Routeberekening…",
+    showOnMap:"Toon op kaart:"
   }
 };
 let LANG = 'en';
@@ -334,7 +332,6 @@ function initApp() {
   const boatSpeed  = $('#boatSpeed');
   const boatHeight = $('#boatHeight');
   const boatDraught= $('#boatDraught');
-  const followMe   = $('#followMe');
   const locateBtn  = $('#locateBtn');
   const clearBtn   = $('#clearBtn');
   const simulateBtn= $('#simulateBtn');
@@ -367,7 +364,7 @@ function initApp() {
   boatSpeed .addEventListener('input', () => { state.boat.speedKmh = +boatSpeed.value; updateRouteStats(); });
   boatHeight.addEventListener('input', () => { state.boat.heightM = +boatHeight.value; });
   boatDraught.addEventListener('input', () => { state.boat.draughtM = +boatDraught.value; });
-  followMe  .addEventListener('change', () => state.follow = followMe.checked);
+  // removed followMe UI
 
   locateBtn.addEventListener('click', startLocate);
   clearBtn .addEventListener('click', clearRoute);
@@ -409,7 +406,7 @@ function initApp() {
         if (!state.meMarker) state.meMarker = L.marker(ll, { title: 'You', zIndexOffset: 1000 }).addTo(map);
         else state.meMarker.setLatLng(ll);
         setStatus(`GPS: ${ll[0].toFixed(5)}, ${ll[1].toFixed(5)} (±${Math.round(pos.coords.accuracy)} m)`);
-        if (state.follow) map.setView(ll, Math.max(map.getZoom(), 14));
+        // follow removed
       },
       err => setStatus(I18N[LANG].geoErr + err.message),
       { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
@@ -547,7 +544,7 @@ function initApp() {
   }
 
   function renderFuelDock(data) {
-    fuelLayer.clearLayers(); dockLayer.clearLayers();
+    dockLayer.clearLayers();
     for (const el of (data.elements || [])) {
       let lat, lon, tags = el.tags || {};
       if (el.type === 'node') { lat = el.lat; lon = el.lon; }
@@ -637,7 +634,7 @@ function initApp() {
   function restylePOIs() {
     state.fetched = { w:new Set(), p:new Set(), fd:new Set() };
     locksLayer.clearLayers(); bridgesLayer.clearLayers();
-    fuelLayer.clearLayers(); dockLayer.clearLayers();
+    dockLayer.clearLayers();
     map.fire('moveend');
   }
 
