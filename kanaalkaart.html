@@ -535,9 +535,9 @@ function initApp() {
     }
   }
 
-  function setReportsVisible(on){ on ? reportsLayer.addTo(map) : map.removeLayer(reportsLayer); }
+  function setReportsVisible(on){ if (on) { reportsLayer.addTo(map); renderReports(); } else { map.removeLayer(reportsLayer); } }
   toggleReports.addEventListener('change', () => setReportsVisible(toggleReports.checked));
-  setReportsVisible(toggleReports.checked);
+  setReportsVisible(toggleReports ? toggleReports.checked : true);
   renderReports();
   // keep draft marker visible regardless of toggle
   if (draftLayer) draftLayer.addTo(map);
