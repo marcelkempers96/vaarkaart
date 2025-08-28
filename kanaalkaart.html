@@ -316,7 +316,7 @@ function initApp() {
     follow: false,
     meMarker: null,
     geowatchId: null,
-    fetchedTileKeys: new Set(),
+    fetched: { w: new Set(), p: new Set(), fd: new Set() },
     cacheMem: new Map(), // tileKey -> json
     graph: { nextId: 1, nodes: new Map(), coords: new Map(), adj: new Map(), segments: [] },
     route: null,
@@ -452,14 +452,21 @@ function initApp() {
   function qFuelDock(b) {
     const bbox = bboxString(b);
     return `[
-      out:json][timeout:30];(
+      out:json][timeout:40];(
         node["amenity"="fuel"]["fuel:marine"="yes"](${bbox});
         node["amenity"="fuel"]["boat"="yes"](${bbox});
         node["amenity"="fuel"]["seamark:type"="harbour"](${bbox});
         node["seamark:type"="harbour"]["seamark:harbour:category"~"fuel|service"](${bbox});
-        node["mooring"="yes"](${bbox});
+        node["seamark:small_craft_facility"~"fuel|slipway|boatyard"](${bbox});
+        node["shop"="boat"]["service:fuel"="yes"](${bbox});
+
         node["leisure"="marina"](${bbox});
         way["leisure"="marina"](${bbox});
+        node["seamark:type"="harbour"]["seamark:harbour:category"~"marina|yacht_harbour"](${bbox});
+        node["tourism"="hotel"]["mooring"="yes"](${bbox});
+        node["mooring"="yes"](${bbox});
+        way["mooring"="yes"](${bbox});
+        node["seamark:type"="pontoon"](${bbox});
       ); out tags center;`;
   }
   function cacheGet(ns, key) {
@@ -553,8 +560,9 @@ function initApp() {
       else if (el.type === 'way' && el.center) { lat = el.center.lat; lon = el.center.lon; }
       else continue;
 
-      const isFuel = tags.amenity === 'fuel' || (tags['seamark:type'] === 'harbour' && /fuel|service/.test(tags['seamark:harbour:category']||'')) || tags['fuel:marine'] === 'yes' || tags.boat === 'yes';
-      const isDock = tags.mooring === 'yes' || tags.leisure === 'marina';
+      const harbourCats = String(tags['seamark:harbour:category']||'');
+      const isFuel = tags.amenity === 'fuel' || tags['fuel:marine'] === 'yes' || tags.boat === 'yes' || /fuel|service/.test(harbourCats) || tags['seamark:small_craft_facility']?.includes('fuel') || tags['service:fuel'] === 'yes';
+      const isDock = tags.mooring === 'yes' || tags.leisure === 'marina' || tags['seamark:type'] === 'pontoon' || /marina|yacht_harbour/.test(harbourCats);
       const color = isFuel ? '#8b5cf6' : '#6b7280';
       if (!isFuel && !isDock) continue;
       const marker = L.circleMarker([lat, lon], { radius: 5, color, weight: 2, fillOpacity: 0.8 });
@@ -580,8 +588,12 @@ function initApp() {
     const bigB = boundsFromSWNE(s, w, n, e);
     try {
       const key = `corr:${[s, w, n, e].map(v => v.toFixed(3)).join(',')}`;
-      const wdata = await fetchOverpass(qWaterways(bigB), `w:${key}`);
+      const [wdata, fdData] = await Promise.all([
+        fetchOverpass(qWaterways(bigB), `w:${key}`),
+        fetchOverpass(qFuelDock(bigB), `fd:${key}`)
+      ]);
       await renderWaterways(wdata);
+      renderFuelDock(fdData);
       return;
     } catch (err) {
       // Fallback: split into smaller tiles if the bbox is too large for Overpass
@@ -594,6 +606,7 @@ function initApp() {
           const key2 = `corr:${[s2, w2, n2, e2].map(v => v.toFixed(3)).join(',')}`;
           tasks.push((async () => {
             try { const wdata2 = await fetchOverpass(qWaterways(b), `w:${key2}`); await renderWaterways(wdata2); } catch {}
+            try { const fd2 = await fetchOverpass(qFuelDock(b), `fd:${key2}`); renderFuelDock(fd2); } catch {}
           })());
         }
       }
@@ -603,26 +616,30 @@ function initApp() {
 
   let fetchTimer = null;
   map.on('moveend zoomend', () => {
-    if (!toggleWaterways.checked && !toggleLocks.checked && !toggleBridges.checked) return;
+    if (!toggleWaterways.checked && !toggleLocks.checked && !toggleBridges.checked && !document.getElementById('toggleFuel').checked && !document.getElementById('toggleDock').checked) return;
     if (map.getZoom() < 12) return;
     const key = tileKeyFromBounds(map.getBounds());
-    if (state.fetchedTileKeys.has(key)) return;
-    state.fetchedTileKeys.add(key);
+    if (toggleWaterways.checked && state.fetched.w.has(key)
+      && (toggleLocks.checked || toggleBridges.checked) && state.fetched.p.has(key)
+      && (document.getElementById('toggleFuel').checked || document.getElementById('toggleDock').checked) && state.fetched.fd.has(key)) return;
     if (fetchTimer) clearTimeout(fetchTimer);
     fetchTimer = setTimeout(async () => {
       try {
         setBusy(true); setStatus(I18N[LANG].loading);
         if (toggleWaterways.checked) {
           const w = await fetchOverpass(qWaterways(map.getBounds()), `w:${key}`);
-          renderWaterways(w);
+          await renderWaterways(w);
+          state.fetched.w.add(key);
         }
         if (toggleLocks.checked || toggleBridges.checked) {
           const p = await fetchOverpass(qLocksBridges(map.getBounds()), `p:${key}`);
           renderPOIs(p);
+          state.fetched.p.add(key);
         }
         if (document.getElementById('toggleFuel').checked || document.getElementById('toggleDock').checked) {
           const fd = await fetchOverpass(qFuelDock(map.getBounds()), `fd:${key}`);
           renderFuelDock(fd);
+          state.fetched.fd.add(key);
         }
         setBusy(false); setStatus(I18N[LANG].ready);
       } catch (e) { console.error(e); setBusy(false); setStatus(I18N[LANG].overpassErr); }
@@ -630,8 +647,9 @@ function initApp() {
   });
 
   function restylePOIs() {
-    state.fetchedTileKeys.clear();
+    state.fetched = { w:new Set(), p:new Set(), fd:new Set() };
     locksLayer.clearLayers(); bridgesLayer.clearLayers();
+    fuelLayer.clearLayers(); dockLayer.clearLayers();
     map.fire('moveend');
   }
 
