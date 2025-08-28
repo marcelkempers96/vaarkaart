@@ -40,6 +40,7 @@
   .swatch { width:14px; height:14px; border-radius:3px; border:1px solid #0002; }
   .swatch.blue { background:#3b82f6; } .swatch.orange{ background:#fb923c; }
   .swatch.green { background:#10b981; } .swatch.red   { background:#ef4444; }
+  .swatch.purple { background:#8b5cf6; } .swatch.gray { background:#6b7280; }
   .badge { display:inline-block; background:#111827; color:#fff; border-radius:999px; padding:2px 8px; font-size:12px; }
 
   .statusbar {
@@ -111,6 +112,11 @@
       <label><input id="toggleLocks" type="checkbox" checked> <span data-i18n="locks">Locks</span></label>
       <label><input id="toggleBridges" type="checkbox" checked> <span data-i18n="bridges">Bridges</span></label>
     </div>
+    <div class="grid-3">
+      <label><input id="toggleFuel" type="checkbox" checked> <span data-i18n="fuel">Gas stations</span></label>
+      <label><input id="toggleDock" type="checkbox" checked> <span data-i18n="docking">Docking</span></label>
+      <span></span>
+    </div>
 
     <div class="grid">
       <button id="locateBtn" class="secondary">📍 <span data-i18n="locate">Locate me</span></button>
@@ -129,6 +135,8 @@
       <span class="key"><span class="swatch orange"></span> <span data-i18n="locks">Locks</span></span>
       <span class="key"><span class="swatch green"></span> <span data-i18n="bridges">Bridges</span></span>
       <span class="key"><span class="swatch red"></span> <span data-i18n="constraint">Constraint &lt; boat width</span></span>
+      <span class="key"><span class="swatch purple"></span> <span data-i18n="fuel">Gas stations</span></span>
+      <span class="key"><span class="swatch gray"></span> <span data-i18n="docking">Docking</span></span>
     </div>
     <p class="hint" data-i18n="hint">Important for Navigation: <b>Zoom/Scroll to load map</b> along your waterway. Click “Select Start/Finish” to compute a route along waterways only once all waterways (Blue Line) has been loaded.</p>
     <p class="small" data-i18n="disclaimer">Data: OpenStreetMap via Overpass. Verify local regulations & notices to mariners.</p>
@@ -207,6 +215,7 @@ const I18N = {
     height:"Height (m)", draught:"Draught (m)",
     tabMain:"Main", tabBoat:"Boat Profile", tabSaved:"Saved",
     waterways:"Waterways", locks:"Locks", bridges:"Bridges", snap:"Snap clicks to canal",
+    fuel:"Gas stations", docking:"Docking",
     locate:"Locate me", select:"Select Start/Finish", cancel:"Cancel selection",
     simulate:"Simulate", clear:"Clear route",
     savedRoutesHdr:"Saved routes (max 3)", save:"Save", load:"Load", del:"Del",
@@ -229,6 +238,7 @@ const I18N = {
     height:"Hoogte (m)", draught:"Diepgang (m)",
     tabMain:"Hoofdmenu", tabBoat:"Bootprofiel", tabSaved:"Opgeslagen",
     waterways:"Waterwegen", locks:"Sluizen", bridges:"Bruggen", snap:"Kliks op kanaal vastzetten",
+    fuel:"Tankstations", docking:"Aanlegplaatsen",
     locate:"Vind mijn locatie", select:"Kies Start/Bestemming", cancel:"Selectie annuleren",
     simulate:"Simuleren", clear:"Route wissen",
     savedRoutesHdr:"Opgeslagen routes (max 3)", save:"Opslaan", load:"Laden", del:"Verw.",
@@ -295,6 +305,8 @@ function initApp() {
   const waterwaysLayer = L.geoJSON(null, { style: () => ({ color: '#3b82f6', weight: 2, opacity: 0.9 }) }).addTo(map);
   const locksLayer = L.layerGroup().addTo(map);
   const bridgesLayer = L.layerGroup().addTo(map);
+  const fuelLayer = L.layerGroup().addTo(map);
+  const dockLayer = L.layerGroup().addTo(map);
   const routeLayer = L.layerGroup().addTo(map);
   const selectionLayer = L.layerGroup().addTo(map);
 
@@ -328,6 +340,8 @@ function initApp() {
   const toggleWaterways = $('#toggleWaterways');
   const toggleLocks = $('#toggleLocks');
   const toggleBridges = $('#toggleBridges');
+  const toggleFuel = $('#toggleFuel');
+  const toggleDock = $('#toggleDock');
   const snapToWaterways = $('#snapToWaterways');
   // Tabs
   const tabMainBtn = document.getElementById('tabMainBtn');
@@ -362,6 +376,8 @@ function initApp() {
   toggleWaterways.addEventListener('change', () => toggleLayer(toggleWaterways, waterwaysLayer));
   toggleLocks    .addEventListener('change', () => toggleLayer(toggleLocks, locksLayer));
   toggleBridges  .addEventListener('change', () => toggleLayer(toggleBridges, bridgesLayer));
+  toggleFuel     .addEventListener('change', () => toggleLayer(toggleFuel, fuelLayer));
+  toggleDock     .addEventListener('change', () => toggleLayer(toggleDock, dockLayer));
   function toggleLayer(ctrl, layer) { ctrl.checked ? layer.addTo(map) : map.removeLayer(layer); }
 
   slots.forEach(s => {
@@ -431,6 +447,19 @@ function initApp() {
         node["lock"="yes"](${bbox});
         way["lock"="yes"](${bbox});
         way["bridge"](${bbox});
+      ); out tags center;`;
+  }
+  function qFuelDock(b) {
+    const bbox = bboxString(b);
+    return `[
+      out:json][timeout:30];(
+        node["amenity"="fuel"]["fuel:marine"="yes"](${bbox});
+        node["amenity"="fuel"]["boat"="yes"](${bbox});
+        node["amenity"="fuel"]["seamark:type"="harbour"](${bbox});
+        node["seamark:type"="harbour"]["seamark:harbour:category"~"fuel|service"](${bbox});
+        node["mooring"="yes"](${bbox});
+        node["leisure"="marina"](${bbox});
+        way["leisure"="marina"](${bbox});
       ); out tags center;`;
   }
   function cacheGet(ns, key) {
@@ -516,6 +545,26 @@ function initApp() {
     }
   }
 
+  function renderFuelDock(data) {
+    fuelLayer.clearLayers(); dockLayer.clearLayers();
+    for (const el of (data.elements || [])) {
+      let lat, lon, tags = el.tags || {};
+      if (el.type === 'node') { lat = el.lat; lon = el.lon; }
+      else if (el.type === 'way' && el.center) { lat = el.center.lat; lon = el.center.lon; }
+      else continue;
+
+      const isFuel = tags.amenity === 'fuel' || (tags['seamark:type'] === 'harbour' && /fuel|service/.test(tags['seamark:harbour:category']||'')) || tags['fuel:marine'] === 'yes' || tags.boat === 'yes';
+      const isDock = tags.mooring === 'yes' || tags.leisure === 'marina';
+      const color = isFuel ? '#8b5cf6' : '#6b7280';
+      if (!isFuel && !isDock) continue;
+      const marker = L.circleMarker([lat, lon], { radius: 5, color, weight: 2, fillOpacity: 0.8 });
+      const title = isFuel ? 'Fuel' : 'Docking';
+      const details = Object.entries(tags).map(([k,v]) => `<div><strong>${k}</strong>: ${v}</div>`).slice(0, 20).join('');
+      marker.bindPopup(`<div><strong>${title}</strong>${details}</div>`);
+      (isFuel ? fuelLayer : dockLayer).addLayer(marker);
+    }
+  }
+
   // Helper: create a minimal Leaflet-like bounds from south, west, north, east
   function boundsFromSWNE(s, w, n, e) { return { getSouth: () => s, getWest: () => w, getNorth: () => n, getEast: () => e }; }
 
@@ -570,6 +619,10 @@ function initApp() {
         if (toggleLocks.checked || toggleBridges.checked) {
           const p = await fetchOverpass(qLocksBridges(map.getBounds()), `p:${key}`);
           renderPOIs(p);
+        }
+        if (document.getElementById('toggleFuel').checked || document.getElementById('toggleDock').checked) {
+          const fd = await fetchOverpass(qFuelDock(map.getBounds()), `fd:${key}`);
+          renderFuelDock(fd);
         }
         setBusy(false); setStatus(I18N[LANG].ready);
       } catch (e) { console.error(e); setBusy(false); setStatus(I18N[LANG].overpassErr); }
