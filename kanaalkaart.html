@@ -89,25 +89,25 @@
 
 <div class="panel" id="panel" role="region" aria-label="Controls">
   <h1>
-    <span data-i18n="title">🚤 CanalNav NL <span class="badge">beta</span></span>
-    <select id="lang">
-      <option value="en" selected>English</option>
-      <option value="nl">Nederlands</option>
-    </select>
+    <span "Show on Map: /span>
   </h1>
 
   <div class="tabs" role="tablist" aria-label="Panel tabs">
     <button class="tab-btn" id="tabMainBtn" role="tab" aria-selected="true" aria-controls="tabMain" data-i18n="tabMain">Main</button>
-    <button class="tab-btn" id="tabBoatBtn" role="tab" aria-selected="false" aria-controls="tabBoat" data-i18n="tabBoat">Boat Profile</button>
-    <button class="tab-btn" id="tabSavedBtn" role="tab" aria-selected="false" aria-controls="tabSaved" data-i18n="tabSaved">Saved</button>
+    <button class="tab-btn" id="tabBoatBtn" role="tab" aria-selected="false" aria-controls="tabBoat" data-i18n="tabBoat">My Boat Profile</button>
+    <button class="tab-btn" id="tabSavedBtn" role="tab" aria-selected="false" aria-controls="tabSaved" data-i18n="tabSaved">Saved Routes</button>
   </div>
 
   <div id="tabMain" class="tabcontent active" role="tabpanel" aria-labelledby="tabMainBtn">
-    <div class="grid">
-      <label><input id="followMe" type="checkbox"> <span data-i18n="follow">Follow me</span></label>
-      <span></span>
-    </div>
-
+    
+    <h2>
+        <span data-i18n="title">🚤 CanalNav NL <span class="badge">beta</span></span>
+        <select id="lang">
+          <option value="en" selected>English</option>
+          <option value="nl">Nederlands</option>
+        </select>
+      </h2>
+    
     <div class="grid-3">
       <label><input id="toggleWaterways" type="checkbox" checked> <span data-i18n="waterways">Waterways</span></label>
       <label><input id="toggleLocks" type="checkbox"> <span data-i18n="locks">Locks</span></label>
