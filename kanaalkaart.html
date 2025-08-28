@@ -71,6 +71,13 @@
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
+  /* Tabs */
+  .tabs { display:flex; gap:6px; margin:8px 0; }
+  .tab-btn { padding:6px 10px; border:0; border-radius:999px; cursor:pointer; background:#e5e7eb; color:#111827; font-weight:700; }
+  .tab-btn[aria-selected="true"] { background:#0ea5e9; color:#fff; }
+  .tabcontent { display:none; }
+  .tabcontent.active { display:block; }
+
   @media (max-width: 600px) { .panel { width: 92vw; } }
 </style>
 </head>
@@ -87,68 +94,92 @@
     </select>
   </h1>
 
-  <div class="grid">
-    <label title="Boat length (m)"><span data-i18n="length">Length (m)</span>
-      <input id="boatLength" type="number" min="1" step="0.1" value="5">
-    </label>
-    <label title="Boat width/beam (m)"><span data-i18n="width">Width (m)</span>
-      <input id="boatWidth" type="number" min="0.5" step="0.1" value="1.5">
-    </label>
+  <div class="tabs" role="tablist" aria-label="Panel tabs">
+    <button class="tab-btn" id="tabMainBtn" role="tab" aria-selected="true" aria-controls="tabMain" data-i18n="tabMain">Main</button>
+    <button class="tab-btn" id="tabBoatBtn" role="tab" aria-selected="false" aria-controls="tabBoat" data-i18n="tabBoat">Boat Profile</button>
+    <button class="tab-btn" id="tabSavedBtn" role="tab" aria-selected="false" aria-controls="tabSaved" data-i18n="tabSaved">Saved</button>
   </div>
 
-  <div class="grid">
-    <label title="Cruising speed (km/h) for ETA"><span data-i18n="speed">Speed (km/h)</span>
-      <input id="boatSpeed" type="number" min="1" step="0.5" value="7">
-    </label>
-    <label><input id="followMe" type="checkbox"> <span data-i18n="follow">Follow me</span></label>
+  <div id="tabMain" class="tabcontent active" role="tabpanel" aria-labelledby="tabMainBtn">
+    <div class="grid">
+      <label><input id="followMe" type="checkbox"> <span data-i18n="follow">Follow me</span></label>
+      <label><input id="snapToWaterways" type="checkbox" checked> <span data-i18n="snap">Snap clicks to canal</span></label>
+    </div>
+
+    <div class="grid-3">
+      <label><input id="toggleWaterways" type="checkbox" checked> <span data-i18n="waterways">Waterways</span></label>
+      <label><input id="toggleLocks" type="checkbox" checked> <span data-i18n="locks">Locks</span></label>
+      <label><input id="toggleBridges" type="checkbox" checked> <span data-i18n="bridges">Bridges</span></label>
+    </div>
+
+    <div class="grid">
+      <button id="locateBtn" class="secondary">📍 <span data-i18n="locate">Locate me</span></button>
+      <span></span>
+    </div>
+
+    <div class="btns">
+      <button id="selectBtn" class="ghost"  data-i18n="select">Select Start/Finish</button>
+      <button id="cancelSelBtn" class="warn" disabled data-i18n="cancel">Cancel selection</button>
+      <button id="simulateBtn" disabled>▶︎ <span data-i18n="simulate">Simulate</span></button>
+      <button id="clearBtn" class="ghost" data-i18n="clear">Clear route</button>
+    </div>
+
+    <div class="legend small" style="margin-top:8px;">
+      <span class="key"><span class="swatch blue"></span> <span data-i18n="waterways">Waterways</span></span>
+      <span class="key"><span class="swatch orange"></span> <span data-i18n="locks">Locks</span></span>
+      <span class="key"><span class="swatch green"></span> <span data-i18n="bridges">Bridges</span></span>
+      <span class="key"><span class="swatch red"></span> <span data-i18n="constraint">Constraint &lt; boat width</span></span>
+    </div>
+    <p class="hint" data-i18n="hint">Zoom to ≥ 12 to fetch canals/POIs. Click “Select Start/Finish” to compute a route along waterways.</p>
+    <p class="small" data-i18n="disclaimer">Data: OpenStreetMap via Overpass. Verify local regulations & notices to mariners.</p>
   </div>
 
-  <div class="grid-3">
-    <label><input id="toggleWaterways" type="checkbox" checked> <span data-i18n="waterways">Waterways</span></label>
-    <label><input id="toggleLocks" type="checkbox" checked> <span data-i18n="locks">Locks</span></label>
-    <label><input id="toggleBridges" type="checkbox" checked> <span data-i18n="bridges">Bridges</span></label>
+  <div id="tabBoat" class="tabcontent" role="tabpanel" aria-labelledby="tabBoatBtn">
+    <div class="grid">
+      <label title="Boat length (m)"><span data-i18n="length">Length (m)</span>
+        <input id="boatLength" type="number" min="1" step="0.1" value="5">
+      </label>
+      <label title="Boat width/beam (m)"><span data-i18n="width">Width (m)</span>
+        <input id="boatWidth" type="number" min="0.5" step="0.1" value="1.5">
+      </label>
+    </div>
+    <div class="grid">
+      <label title="Cruising speed (km/h) for ETA"><span data-i18n="speed">Speed (km/h)</span>
+        <input id="boatSpeed" type="number" min="1" step="0.5" value="7">
+      </label>
+      <span></span>
+    </div>
+    <div class="grid">
+      <label title="Boat height (m)"><span data-i18n="height">Height (m)</span>
+        <input id="boatHeight" type="number" min="0.5" step="0.1" value="2.0">
+      </label>
+      <label title="Boat draught (m)"><span data-i18n="draught">Draught (m)</span>
+        <input id="boatDraught" type="number" min="0.1" step="0.1" value="0.7">
+      </label>
+    </div>
   </div>
 
-  <div class="grid">
-    <label><input id="snapToWaterways" type="checkbox" checked> <span data-i18n="snap">Snap clicks to canal</span></label>
-    <button id="locateBtn" class="secondary">📍 <span data-i18n="locate">Locate me</span></button>
+  <div id="tabSaved" class="tabcontent" role="tabpanel" aria-labelledby="tabSavedBtn">
+    <h3 style="margin:12px 0 6px 0;font-size:14px;" data-i18n="savedRoutesHdr">Saved routes (max 3)</h3>
+    <div class="slot">
+      <input id="slotName1" type="text" placeholder="Route 1 name">
+      <button id="save1"  data-i18n="save">Save</button>
+      <button id="load1" class="secondary" data-i18n="load">Load</button>
+      <button id="del1"  class="warn" data-i18n="del">Del</button>
+    </div>
+    <div class="slot">
+      <input id="slotName2" type="text" placeholder="Route 2 name">
+      <button id="save2"  data-i18n="save">Save</button>
+      <button id="load2" class="secondary" data-i18n="load">Load</button>
+      <button id="del2"  class="warn" data-i18n="del">Del</button>
+    </div>
+    <div class="slot">
+      <input id="slotName3" type="text" placeholder="Route 3 name">
+      <button id="save3"  data-i18n="save">Save</button>
+      <button id="load3" class="secondary" data-i18n="load">Load</button>
+      <button id="del3"  class="warn" data-i18n="del">Del</button>
+    </div>
   </div>
-
-  <div class="btns">
-    <button id="selectBtn" class="ghost"  data-i18n="select">Select Start/Finish</button>
-    <button id="cancelSelBtn" class="warn" disabled data-i18n="cancel">Cancel selection</button>
-    <button id="simulateBtn" disabled>▶︎ <span data-i18n="simulate">Simulate</span></button>
-    <button id="clearBtn" class="ghost" data-i18n="clear">Clear route</button>
-  </div>
-
-  <h3 style="margin:12px 0 6px 0;font-size:14px;" data-i18n="savedRoutesHdr">Saved routes (max 3)</h3>
-  <div class="slot">
-    <input id="slotName1" type="text" placeholder="Route 1 name">
-    <button id="save1"  data-i18n="save">Save</button>
-    <button id="load1" class="secondary" data-i18n="load">Load</button>
-    <button id="del1"  class="warn" data-i18n="del">Del</button>
-  </div>
-  <div class="slot">
-    <input id="slotName2" type="text" placeholder="Route 2 name">
-    <button id="save2"  data-i18n="save">Save</button>
-    <button id="load2" class="secondary" data-i18n="load">Load</button>
-    <button id="del2"  class="warn" data-i18n="del">Del</button>
-  </div>
-  <div class="slot">
-    <input id="slotName3" type="text" placeholder="Route 3 name">
-    <button id="save3"  data-i18n="save">Save</button>
-    <button id="load3" class="secondary" data-i18n="load">Load</button>
-    <button id="del3"  class="warn" data-i18n="del">Del</button>
-  </div>
-
-  <div class="legend small" style="margin-top:8px;">
-    <span class="key"><span class="swatch blue"></span> <span data-i18n="waterways">Waterways</span></span>
-    <span class="key"><span class="swatch orange"></span> <span data-i18n="locks">Locks</span></span>
-    <span class="key"><span class="swatch green"></span> <span data-i18n="bridges">Bridges</span></span>
-    <span class="key"><span class="swatch red"></span> <span data-i18n="constraint">Constraint &lt; boat width</span></span>
-  </div>
-  <p class="hint" data-i18n="hint">Zoom to ≥ 12 to fetch canals/POIs. Click “Select Start/Finish” to compute a route along waterways.</p>
-  <p class="small" data-i18n="disclaimer">Data: OpenStreetMap via Overpass. Verify local regulations & notices to mariners.</p>
 </div>
 
 <div class="statusbar">
@@ -173,6 +204,8 @@ const I18N = {
   en: {
     title: "🚤 CanalNav NL <span class='badge'>beta</span>",
     length:"Length (m)", width:"Width (m)", speed:"Speed (km/h)", follow:"Follow me",
+    height:"Height (m)", draught:"Draught (m)",
+    tabMain:"Main", tabBoat:"Boat Profile", tabSaved:"Saved",
     waterways:"Waterways", locks:"Locks", bridges:"Bridges", snap:"Snap clicks to canal",
     locate:"Locate me", select:"Select Start/Finish", cancel:"Cancel selection",
     simulate:"Simulate", clear:"Clear route",
@@ -193,6 +226,8 @@ const I18N = {
   nl: {
     title: "🚤 CanalNav NL <span class='badge'>beta</span>",
     length:"Lengte (m)", width:"Breedte (m)", speed:"Snelheid (km/u)", follow:"Volg mij",
+    height:"Hoogte (m)", draught:"Diepgang (m)",
+    tabMain:"Hoofdmenu", tabBoat:"Bootprofiel", tabSaved:"Opgeslagen",
     waterways:"Waterwegen", locks:"Sluizen", bridges:"Bruggen", snap:"Kliks op kanaal vastzetten",
     locate:"Vind mijn locatie", select:"Kies Start/Bestemming", cancel:"Selectie annuleren",
     simulate:"Simuleren", clear:"Route wissen",
@@ -282,6 +317,8 @@ function initApp() {
   const boatLength = $('#boatLength');
   const boatWidth  = $('#boatWidth');
   const boatSpeed  = $('#boatSpeed');
+  const boatHeight = $('#boatHeight');
+  const boatDraught= $('#boatDraught');
   const followMe   = $('#followMe');
   const locateBtn  = $('#locateBtn');
   const clearBtn   = $('#clearBtn');
@@ -292,6 +329,13 @@ function initApp() {
   const toggleLocks = $('#toggleLocks');
   const toggleBridges = $('#toggleBridges');
   const snapToWaterways = $('#snapToWaterways');
+  // Tabs
+  const tabMainBtn = document.getElementById('tabMainBtn');
+  const tabBoatBtn = document.getElementById('tabBoatBtn');
+  const tabSavedBtn= document.getElementById('tabSavedBtn');
+  const tabMain    = document.getElementById('tabMain');
+  const tabBoat    = document.getElementById('tabBoat');
+  const tabSaved   = document.getElementById('tabSaved');
 
   // Slots
   const slots = [
@@ -305,6 +349,8 @@ function initApp() {
   boatLength.addEventListener('input', () => { state.boat.length = +boatLength.value; restylePOIs(); });
   boatWidth .addEventListener('input', () => { state.boat.width  = +boatWidth.value;  restylePOIs(); });
   boatSpeed .addEventListener('input', () => { state.boat.speedKmh = +boatSpeed.value; updateRouteStats(); });
+  boatHeight.addEventListener('input', () => { state.boat.heightM = +boatHeight.value; });
+  boatDraught.addEventListener('input', () => { state.boat.draughtM = +boatDraught.value; });
   followMe  .addEventListener('change', () => state.follow = followMe.checked);
 
   locateBtn.addEventListener('click', startLocate);
@@ -323,6 +369,16 @@ function initApp() {
     s.load.addEventListener('click', () => loadRouteFromSlot(s));
     s.del .addEventListener('click', () => deleteRouteSlot(s));
   });
+
+  // Tab switching
+  function activateTab(which){
+    const map = { main:[tabMainBtn, tabMain], boat:[tabBoatBtn, tabBoat], saved:[tabSavedBtn, tabSaved] };
+    for (const [btn, pane] of [map.main, map.boat, map.saved]) { btn.setAttribute('aria-selected','false'); pane.classList.remove('active'); }
+    const [btn, pane] = map[which]; btn.setAttribute('aria-selected','true'); pane.classList.add('active');
+  }
+  tabMainBtn.addEventListener('click', () => activateTab('main'));
+  tabBoatBtn.addEventListener('click', () => activateTab('boat'));
+  tabSavedBtn.addEventListener('click', () => activateTab('saved'));
 
   map.on('click', onMapClick);
 
@@ -428,8 +484,10 @@ function initApp() {
     }
     waterwaysLayer.addData({ type:'FeatureCollection', features });
     setBusy(true); setStatus(I18N[LANG].buildingGraph);
-    // Build graph in chunks to keep UI responsive
-    setTimeout(() => { buildGraphFromFeatures(features); setBusy(false); setStatus(I18N[LANG].ready); }, 0);
+    // Build graph in chunks to keep UI responsive, return a Promise to await completion when needed
+    return new Promise((resolve) => {
+      setTimeout(() => { buildGraphFromFeatures(features).then(() => { setBusy(false); setStatus(I18N[LANG].ready); resolve(); }); }, 0);
+    });
   }
 
   function renderPOIs(data) {
@@ -455,6 +513,42 @@ function initApp() {
       const constraintTxt = limitWidth ? `<div><em>Width limit:</em> ${limitWidth} m</div>` : '';
       marker.bindPopup(`<div><strong>${title}</strong>${constraintTxt}${details}</div>`);
       (kind === 'lock' ? locksLayer : bridgesLayer).addLayer(marker);
+    }
+  }
+
+  // Helper: create a minimal Leaflet-like bounds from south, west, north, east
+  function boundsFromSWNE(s, w, n, e) { return { getSouth: () => s, getWest: () => w, getNorth: () => n, getEast: () => e }; }
+
+  // Prefetch waterways for a padded start–finish corridor to avoid manual panning
+  async function prefetchWaterwaysForCorridor(startLL, endLL) {
+    const pad = 0.12; // ~13 km padding
+    let s = Math.min(startLL.lat, endLL.lat) - pad;
+    let w = Math.min(startLL.lng, endLL.lng) - pad;
+    let n = Math.max(startLL.lat, endLL.lat) + pad;
+    let e = Math.max(startLL.lng, endLL.lng) + pad;
+    s = Math.max(-90, s); n = Math.min(90, n); w = Math.max(-180, w); e = Math.min(180, e);
+
+    const bigB = boundsFromSWNE(s, w, n, e);
+    try {
+      const key = `corr:${[s, w, n, e].map(v => v.toFixed(3)).join(',')}`;
+      const wdata = await fetchOverpass(qWaterways(bigB), `w:${key}`);
+      await renderWaterways(wdata);
+      return;
+    } catch (err) {
+      // Fallback: split into smaller tiles if the bbox is too large for Overpass
+      const step = 0.25; // ~28 km tiles
+      const tasks = [];
+      for (let lat = s; lat < n; lat = Math.min(n, lat + step)) {
+        for (let lon = w; lon < e; lon = Math.min(e, lon + step)) {
+          const s2 = lat, w2 = lon, n2 = Math.min(n, lat + step), e2 = Math.min(e, lon + step);
+          const b = boundsFromSWNE(s2, w2, n2, e2);
+          const key2 = `corr:${[s2, w2, n2, e2].map(v => v.toFixed(3)).join(',')}`;
+          tasks.push((async () => {
+            try { const wdata2 = await fetchOverpass(qWaterways(b), `w:${key2}`); await renderWaterways(wdata2); } catch {}
+          })());
+        }
+      }
+      await Promise.allSettled(tasks);
     }
   }
 
@@ -523,25 +617,28 @@ function initApp() {
   }
   function buildGraphFromFeatures(features) {
     // Build in small batches to keep UI smooth
-    const BATCH = 200;
-    let i = 0;
-    function step() {
-      const end = Math.min(features.length, i + BATCH);
-      for (; i < end; i++) {
-        const f = features[i];
-        if (!f.geometry || f.geometry.type !== 'LineString') continue;
-        const coords = f.geometry.coordinates; // [lon,lat]
-        let prevId = null;
-        for (let j=0;j<coords.length;j++) {
-          const lat = coords[j][1], lon = coords[j][0];
-          const id = graphAddNode(lat, lon);
-          if (prevId !== null) graphAddEdge(prevId, id);
-          prevId = id;
+    return new Promise((resolve) => {
+      const BATCH = 200;
+      let i = 0;
+      function step() {
+        const end = Math.min(features.length, i + BATCH);
+        for (; i < end; i++) {
+          const f = features[i];
+          if (!f.geometry || f.geometry.type !== 'LineString') continue;
+          const coords = f.geometry.coordinates; // [lon,lat]
+          let prevId = null;
+          for (let j = 0; j < coords.length; j++) {
+            const lat = coords[j][1], lon = coords[j][0];
+            const id = graphAddNode(lat, lon);
+            if (prevId !== null) graphAddEdge(prevId, id);
+            prevId = id;
+          }
         }
+        if (i < features.length) setTimeout(step, 0);
+        else resolve();
       }
-      if (i < features.length) setTimeout(step, 0);
-    }
-    step();
+      step();
+    });
   }
   function findNearestGraphNode(latlng, snap=true) {
     let target = [latlng.lat, latlng.lng];
@@ -610,9 +707,11 @@ function initApp() {
 
   const router = new Worker(workerURL);
 
-  function computeAndDrawRoute(startLL, endLL) {
-    if (state.graph.segments.length === 0) { setStatus(I18N[LANG].noGraph); return; }
-    setBusy(true); setStatus(I18N[LANG].routing);
+  async function computeAndDrawRoute(startLL, endLL) {
+    setBusy(true); setStatus(I18N[LANG].buildingGraph);
+    await prefetchWaterwaysForCorridor(startLL, endLL);
+    if (state.graph.segments.length === 0) { setBusy(false); setStatus(I18N[LANG].noGraph); return; }
+    setStatus(I18N[LANG].routing);
 
     const s = findNearestGraphNode(startLL, snapToWaterways.checked);
     const e = findNearestGraphNode(endLL,   snapToWaterways.checked);
