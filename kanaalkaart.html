@@ -208,6 +208,8 @@
       <button id="submitReportBtn" class="secondary" disabled data-i18n="submitReport">Submit report</button>
     </div>
     <p class="small"><span data-i18n="location">Location</span>: <span id="reportLocText">—</span></p>
+    <h3 style="margin:12px 0 6px 0;font-size:14px;">Reports</h3>
+    <div id="reportsList" class="small"></div>
   </div>
 </div>
 
@@ -368,6 +370,7 @@ function initApp() {
     localStorage.setItem('canalnav-lang', LANG);
     applyI18N();
     populateReportCategories();
+    renderReports();
   });
   applyI18N();
 
@@ -384,6 +387,7 @@ function initApp() {
   const routeLayer = L.layerGroup().addTo(map);
   const selectionLayer = L.layerGroup().addTo(map);
   const reportsLayer = L.layerGroup().addTo(map);
+  const draftLayer = L.layerGroup().addTo(map);
 
   // State
   const state = {
@@ -472,6 +476,7 @@ function initApp() {
   const pickReportBtn = document.getElementById('pickReportBtn');
   const submitReportBtn = document.getElementById('submitReportBtn');
   const reportLocText = document.getElementById('reportLocText');
+  const reportsList = document.getElementById('reportsList');
 
   const REPORTS_KEY = 'vaarapp-reports-v1';
   let reportDraft = { latlng: null, marker: null };
@@ -482,6 +487,30 @@ function initApp() {
   function renderReports(){
     reportsLayer.clearLayers();
     const arr = getStoredReports();
+    // list in Reports tab
+    if (reportsList) {
+      const dict = I18N[LANG];
+      reportsList.innerHTML = arr.map(r=>{
+        const label = (dict.reportCats && dict.reportCats[r.category]) ? dict.reportCats[r.category] : r.category;
+        const loc = `${r.lat.toFixed(5)}, ${r.lng.toFixed(5)}`;
+        const delBtn = r.mine ? `<button data-del-report-list="${r.id}" class="warn" style="padding:2px 6px;margin-left:8px;">${dict.deleteReport||'Delete report'}</button>` : '';
+        return `<div style="display:flex;align-items:center;gap:8px;margin:4px 0;">
+          <span style="font-weight:700;">${label}</span>
+          <span>${loc}</span>
+          <span style="opacity:.7;">${new Date(r.ts).toLocaleString()}</span>
+          ${delBtn}
+        </div>`;
+      }).join('');
+      // attach delete handlers
+      reportsList.querySelectorAll('[data-del-report-list]').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          const id = btn.getAttribute('data-del-report-list');
+          const list = getStoredReports().filter(x=>String(x.id)!==String(id));
+          setStoredReports(list);
+          renderReports();
+        });
+      });
+    }
     for (const r of arr) {
       const color = '#8b5cf6';
       const m = L.circleMarker([r.lat, r.lng], { radius: 6, color, weight: 2, fillOpacity: 0.8 });
@@ -510,6 +539,8 @@ function initApp() {
   toggleReports.addEventListener('change', () => setReportsVisible(toggleReports.checked));
   setReportsVisible(toggleReports.checked);
   renderReports();
+  // keep draft marker visible regardless of toggle
+  if (draftLayer) draftLayer.addTo(map);
 
   function populateReportCategories(){
     const sel = reportCategory; sel.innerHTML = '';
@@ -536,10 +567,10 @@ function initApp() {
     }
   }
   function setReportMarker(ll){
-    if (reportDraft.marker) { try { reportsLayer.removeLayer(reportDraft.marker); } catch {} }
+    if (reportDraft.marker) { try { draftLayer.removeLayer(reportDraft.marker); } catch {} }
     const icon = L.divIcon({ className:'', html:'<div style="width:12px;height:12px;border-radius:50%;background:#8b5cf6;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.3);"></div>', iconSize:[12,12] });
-    reportDraft.marker = L.marker(ll, { icon, zIndexOffset: 1400 }).addTo(reportsLayer);
-    if (reportsLayer.bringToFront) reportsLayer.bringToFront();
+    reportDraft.marker = L.marker(ll, { icon, zIndexOffset: 1400 }).addTo(draftLayer);
+    if (draftLayer.bringToFront) draftLayer.bringToFront();
   }
   submitReportBtn.addEventListener('click', () => {
     if (!reportDraft.latlng) return;
@@ -556,7 +587,7 @@ function initApp() {
     renderReports();
     // clear draft
     reportDraft.latlng = null;
-    if (reportDraft.marker) { try { reportsLayer.removeLayer(reportDraft.marker); } catch {} reportDraft.marker = null; }
+    if (reportDraft.marker) { try { draftLayer.removeLayer(reportDraft.marker); } catch {} reportDraft.marker = null; }
     reportNote.value = '';
     updateReportUI();
     setStatus(I18N[LANG].reportSaved || 'Report submitted.');
