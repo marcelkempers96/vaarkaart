@@ -70,6 +70,7 @@
     border: 2px solid #0ea5e980; border-top-color: transparent;
     display: inline-block; animation: spin .8s linear infinite; vertical-align: -2px;
   }
+  .pill { display:inline-block; padding:2px 8px; border-radius:999px; font-size:12px; font-weight:700; background:#0ea5e9; color:#fff; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
   /* Tabs */
@@ -196,6 +197,7 @@
   <span class="v-sep"></span>
   <span id="routeStats">Route: —</span>
   <span id="busy" style="display:none"><span class="spinner"></span></span>
+  <span id="routingPill" class="pill" style="display:none">Routing…</span>
 </div>
 
 <div class="attr">© OpenStreetMap contributors • Tiles © OSM</div>
@@ -271,7 +273,9 @@ function initApp() {
   const statusText = document.getElementById('statusText');
   const routeStats = document.getElementById('routeStats');
   const busy = document.getElementById('busy');
+  const routingPill = document.getElementById('routingPill');
   const setBusy = (on) => busy.style.display = on ? 'inline-block' : 'none';
+  const setRouting = (on) => routingPill.style.display = on ? 'inline-block' : 'none';
   window.setStatus = (m) => statusText.textContent = m;
 
   // Panel toggle
@@ -763,9 +767,9 @@ function initApp() {
   const router = new Worker(workerURL);
 
   async function computeAndDrawRoute(startLL, endLL) {
-    setBusy(true); setStatus(I18N[LANG].buildingGraph);
+    setBusy(true); setRouting(true); setStatus(I18N[LANG].buildingGraph);
     await prefetchWaterwaysForCorridor(startLL, endLL);
-    if (state.graph.segments.length === 0) { setBusy(false); setStatus(I18N[LANG].noGraph); return; }
+    if (state.graph.segments.length === 0) { setBusy(false); setRouting(false); setStatus(I18N[LANG].noGraph); return; }
     setStatus(I18N[LANG].routing);
 
     const s = findNearestGraphNode(startLL, true);
@@ -783,7 +787,7 @@ function initApp() {
     }
 
     router.onmessage = (ev) => {
-      setBusy(false);
+      setBusy(false); setRouting(false);
       const res = ev.data;
       routeLayer.clearLayers();
       if (!res) { setStatus(I18N[LANG].noPath); state.route = null; simulateBtn.disabled = true; updateRouteStats(); return; }
