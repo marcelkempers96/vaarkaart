@@ -1049,7 +1049,7 @@ function initApp() {
   let pickingReport = false;
   pickReportBtn.addEventListener('click', ()=>{ pickingReport = true; setStatus('Click a location for the report.'); });
   async function onMapClick(e) {
-    if (pickingReport) {
+    if (pickingReport || (typeof tabReports !== 'undefined' && tabReports.classList.contains('active'))) {
       reportDraft.latlng = e.latlng;
       setReportMarker(e.latlng);
       updateReportUI();
