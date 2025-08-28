@@ -861,7 +861,11 @@ function initApp() {
     if (!state.selection.start) {
       // Show raw click immediately
       state.selection.startRaw = e.latlng;
-      state.selection.startRawM = L.circleMarker(e.latlng, { radius: 5, color: '#10b981', weight: 2, fillOpacity: 0.8 }).addTo(selectionLayer);
+      state.selection.startRawM = L.marker(e.latlng, {
+        icon: L.divIcon({ className:'', html:'<div style="width:10px;height:10px;border-radius:50%;background:#10b981;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.3);"></div>', iconSize:[10,10] }),
+        zIndexOffset: 1200
+      }).addTo(selectionLayer);
+      if (selectionLayer.bringToFront) selectionLayer.bringToFront();
       setStatus(I18N[LANG].selFinish);
       // Snap asynchronously to nearest waterway and show snapped marker + link
       try {
@@ -876,7 +880,11 @@ function initApp() {
     } else if (!state.selection.finish) {
       // Show raw click immediately
       state.selection.finishRaw = e.latlng;
-      state.selection.finishRawM = L.circleMarker(e.latlng, { radius: 5, color: '#ef4444', weight: 2, fillOpacity: 0.8 }).addTo(selectionLayer);
+      state.selection.finishRawM = L.marker(e.latlng, {
+        icon: L.divIcon({ className:'', html:'<div style="width:10px;height:10px;border-radius:50%;background:#ef4444;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.3);"></div>', iconSize:[10,10] }),
+        zIndexOffset: 1200
+      }).addTo(selectionLayer);
+      if (selectionLayer.bringToFront) selectionLayer.bringToFront();
       setStatus(I18N[LANG].computing);
       // Snap asynchronously to nearest waterway and show snapped marker + link, then compute route
       try {
