@@ -567,8 +567,8 @@ function initApp() {
   function boundsFromSWNE(s, w, n, e) { return { getSouth: () => s, getWest: () => w, getNorth: () => n, getEast: () => e }; }
 
   // Prefetch waterways for a padded start–finish corridor to avoid manual panning
-  async function prefetchWaterwaysForCorridor(startLL, endLL) {
-    const pad = 0.12; // ~13 km padding
+  async function prefetchWaterwaysForCorridor(startLL, endLL, pad = 0.12) {
+    // default pad ~13 km; callers can increase if needed
     let s = Math.min(startLL.lat, endLL.lat) - pad;
     let w = Math.min(startLL.lng, endLL.lng) - pad;
     let n = Math.max(startLL.lat, endLL.lat) + pad;
@@ -765,37 +765,48 @@ function initApp() {
 
   async function computeAndDrawRoute(startLL, endLL) {
     setBusy(true); setRouting(true); setStatus(I18N[LANG].buildingGraph);
-    await prefetchWaterwaysForCorridor(startLL, endLL);
+    await prefetchWaterwaysForCorridor(startLL, endLL, 0.12);
     if (state.graph.segments.length === 0) { setBusy(false); setRouting(false); setStatus(I18N[LANG].noGraph); return; }
     setStatus(I18N[LANG].routing);
 
-    const s = findNearestGraphNode(startLL, true);
-    const e = findNearestGraphNode(endLL,   true);
-
-    // Build compact arrays for worker
-    const maxId = state.graph.nextId - 1;
-    const coords = new Array(maxId + 1); // 1..maxId
-    for (let [id, c] of state.graph.coords) coords[id] = c;
-    const adj = new Array(maxId + 1);
-    for (let [id, list] of state.graph.adj) {
-      const flat = new Float64Array(list.length * 2);
-      for (let i=0;i<list.length;i++) { flat[i*2] = list[i][0]; flat[i*2+1] = list[i][1]; }
-      adj[id] = Array.from(flat); // structured clone friendly
+    async function buildGraphArrays() {
+      const maxId = state.graph.nextId - 1;
+      const coords = new Array(maxId + 1); // 1..maxId
+      for (let [id, c] of state.graph.coords) coords[id] = c;
+      const adj = new Array(maxId + 1);
+      for (let [id, list] of state.graph.adj) {
+        const flat = new Float64Array(list.length * 2);
+        for (let i=0;i<list.length;i++) { flat[i*2] = list[i][0]; flat[i*2+1] = list[i][1]; }
+        adj[id] = Array.from(flat); // structured clone friendly
+      }
+      return { coords, adj };
     }
 
-    router.onmessage = (ev) => {
-      setBusy(false); setRouting(false);
-      const res = ev.data;
-      routeLayer.clearLayers();
-      if (!res) { setStatus(I18N[LANG].noPath); state.route = null; simulateBtn.disabled = true; updateRouteStats(); return; }
-      const latlngs = res.path.map(id => coords[id]);
-      drawRoute(latlngs);
-      state.route = latlngs;
-      simulateBtn.disabled = false;
-      updateRouteStats(res.meters/1000);
-      setStatus(I18N[LANG].routeComputed);
-    };
-    router.postMessage({ coords, adj, startId: s.id, endId: e.id });
+    async function runOnce() {
+      const s = findNearestGraphNode(startLL, true);
+      const e = findNearestGraphNode(endLL,   true);
+      const { coords, adj } = await buildGraphArrays();
+      return new Promise(resolve => {
+        router.onmessage = ev => resolve({ res: ev.data, coords });
+        router.postMessage({ coords, adj, startId: s.id, endId: e.id });
+      });
+    }
+
+    let { res, coords } = await runOnce();
+    if (!res) {
+      await prefetchWaterwaysForCorridor(startLL, endLL, 0.25);
+      ({ res, coords } = await runOnce());
+    }
+
+    setBusy(false); setRouting(false);
+    routeLayer.clearLayers();
+    if (!res) { setStatus(I18N[LANG].noPath); state.route = null; simulateBtn.disabled = true; updateRouteStats(); return; }
+    const latlngs = res.path.map(id => coords[id]);
+    drawRoute(latlngs);
+    state.route = latlngs;
+    simulateBtn.disabled = false;
+    updateRouteStats(res.meters/1000);
+    setStatus(I18N[LANG].routeComputed);
   }
 
   function drawRoute(latlngs) {
@@ -833,15 +844,32 @@ function initApp() {
     selectionLayer.clearLayers();
     setStatus(I18N[LANG].selCancelled);
   }
-  function onMapClick(e) {
+  async function onMapClick(e) {
     if (!state.selection.active) return;
     if (!state.selection.start) {
-      state.selection.start = e.latlng;
-      state.selection.startM = L.marker(e.latlng, { title:'Start', icon: L.divIcon({className:'', html:'<div style="padding:4px 8px;background:#10b981;color:#fff;border-radius:4px;font-weight:700;">Start</div>'}) }).addTo(selectionLayer);
-      setStatus(I18N[LANG].selFinish);
+      try {
+        await prefetchWaterwaysForCorridor(e.latlng, e.latlng, 0.12);
+        const s = findNearestGraphNode(e.latlng, true);
+        const sLL = { lat: s.at[0], lng: s.at[1] };
+        state.selection.start = sLL;
+        state.selection.startM = L.marker(sLL, { title:'Start', icon: L.divIcon({className:'', html:'<div style="padding:4px 8px;background:#10b981;color:#fff;border-radius:4px;font-weight:700;">Start</div>'}) }).addTo(selectionLayer);
+        setStatus(I18N[LANG].selFinish);
+      } catch {
+        state.selection.start = e.latlng;
+        state.selection.startM = L.marker(e.latlng, { title:'Start', icon: L.divIcon({className:'', html:'<div style="padding:4px 8px;background:#10b981;color:#fff;border-radius:4px;font-weight:700;">Start</div>'}) }).addTo(selectionLayer);
+        setStatus(I18N[LANG].selFinish);
+      }
     } else if (!state.selection.finish) {
-      state.selection.finish = e.latlng;
-      state.selection.finishM = L.marker(e.latlng, { title:'Finish', icon: L.divIcon({className:'', html:'<div style="padding:4px 8px;background:#ef4444;color:#fff;border-radius:4px;font-weight:700;">Finish</div>'}) }).addTo(selectionLayer);
+      try {
+        await prefetchWaterwaysForCorridor(state.selection.start, e.latlng, 0.12);
+        const f = findNearestGraphNode(e.latlng, true);
+        const fLL = { lat: f.at[0], lng: f.at[1] };
+        state.selection.finish = fLL;
+        state.selection.finishM = L.marker(fLL, { title:'Finish', icon: L.divIcon({className:'', html:'<div style="padding:4px 8px;background:#ef4444;color:#fff;border-radius:4px;font-weight:700;">Finish</div>'}) }).addTo(selectionLayer);
+      } catch {
+        state.selection.finish = e.latlng;
+        state.selection.finishM = L.marker(e.latlng, { title:'Finish', icon: L.divIcon({className:'', html:'<div style="padding:4px 8px;background:#ef4444;color:#fff;border-radius:4px;font-weight:700;">Finish</div>'}) }).addTo(selectionLayer);
+      }
       setStatus(I18N[LANG].computing);
       computeAndDrawRoute(state.selection.start, state.selection.finish);
       state.selection.active = false;
