@@ -322,7 +322,12 @@ function initApp() {
     graph: { nextId: 1, nodes: new Map(), coords: new Map(), adj: new Map(), segments: [] },
     route: null,
     sim: { anim: null, marker: null },
-    selection: { active: false, start: null, finish: null, startM: null, finishM: null },
+    selection: { active: false,
+      start: null, finish: null,
+      startRaw: null, finishRaw: null,
+      startM: null, finishM: null,
+      startRawM: null, finishRawM: null,
+      startLink: null, finishLink: null },
   };
 
   // ===== UI hooks
@@ -833,7 +838,14 @@ function initApp() {
 
   /* ---------- Selection ---------- */
   function startSelect() {
-    state.selection = { active: true, start: null, finish: null, startM: null, finishM: null };
+    state.selection = {
+      active: true,
+      start: null, finish: null,
+      startRaw: null, finishRaw: null,
+      startM: null, finishM: null,
+      startRawM: null, finishRawM: null,
+      startLink: null, finishLink: null
+    };
     cancelSelBtn.disabled = false;
     selectionLayer.clearLayers();
     setStatus(I18N[LANG].selStart);
@@ -847,30 +859,35 @@ function initApp() {
   async function onMapClick(e) {
     if (!state.selection.active) return;
     if (!state.selection.start) {
+      // Show raw click immediately
+      state.selection.startRaw = e.latlng;
+      state.selection.startRawM = L.circleMarker(e.latlng, { radius: 5, color: '#10b981', weight: 2, fillOpacity: 0.8 }).addTo(selectionLayer);
+      setStatus(I18N[LANG].selFinish);
+      // Snap asynchronously to nearest waterway and show snapped marker + link
       try {
         await prefetchWaterwaysForCorridor(e.latlng, e.latlng, 0.12);
-        const s = findNearestGraphNode(e.latlng, true);
-        const sLL = { lat: s.at[0], lng: s.at[1] };
-        state.selection.start = sLL;
-        state.selection.startM = L.marker(sLL, { title:'Start', icon: L.divIcon({className:'', html:'<div style="padding:4px 8px;background:#10b981;color:#fff;border-radius:4px;font-weight:700;">Start</div>'}) }).addTo(selectionLayer);
-        setStatus(I18N[LANG].selFinish);
-      } catch {
-        state.selection.start = e.latlng;
-        state.selection.startM = L.marker(e.latlng, { title:'Start', icon: L.divIcon({className:'', html:'<div style="padding:4px 8px;background:#10b981;color:#fff;border-radius:4px;font-weight:700;">Start</div>'}) }).addTo(selectionLayer);
-        setStatus(I18N[LANG].selFinish);
-      }
+      } catch {}
+      let snapped = null;
+      try { const s = findNearestGraphNode(e.latlng, true); snapped = { lat: s.at[0], lng: s.at[1] }; } catch {}
+      const sLL = snapped || e.latlng;
+      state.selection.start = sLL;
+      state.selection.startM = L.marker(sLL, { title:'Start', icon: L.divIcon({className:'', html:'<div style="padding:4px 8px;background:#10b981;color:#fff;border-radius:4px;font-weight:700;">Start</div>'}) }).addTo(selectionLayer);
+      state.selection.startLink = L.polyline([state.selection.startRaw, sLL], { color:'#10b981', weight:2, opacity:0.8, dashArray:'4 4' }).addTo(selectionLayer);
     } else if (!state.selection.finish) {
+      // Show raw click immediately
+      state.selection.finishRaw = e.latlng;
+      state.selection.finishRawM = L.circleMarker(e.latlng, { radius: 5, color: '#ef4444', weight: 2, fillOpacity: 0.8 }).addTo(selectionLayer);
+      setStatus(I18N[LANG].computing);
+      // Snap asynchronously to nearest waterway and show snapped marker + link, then compute route
       try {
         await prefetchWaterwaysForCorridor(state.selection.start, e.latlng, 0.12);
-        const f = findNearestGraphNode(e.latlng, true);
-        const fLL = { lat: f.at[0], lng: f.at[1] };
-        state.selection.finish = fLL;
-        state.selection.finishM = L.marker(fLL, { title:'Finish', icon: L.divIcon({className:'', html:'<div style="padding:4px 8px;background:#ef4444;color:#fff;border-radius:4px;font-weight:700;">Finish</div>'}) }).addTo(selectionLayer);
-      } catch {
-        state.selection.finish = e.latlng;
-        state.selection.finishM = L.marker(e.latlng, { title:'Finish', icon: L.divIcon({className:'', html:'<div style="padding:4px 8px;background:#ef4444;color:#fff;border-radius:4px;font-weight:700;">Finish</div>'}) }).addTo(selectionLayer);
-      }
-      setStatus(I18N[LANG].computing);
+      } catch {}
+      let snappedF = null;
+      try { const f = findNearestGraphNode(e.latlng, true); snappedF = { lat: f.at[0], lng: f.at[1] }; } catch {}
+      const fLL = snappedF || e.latlng;
+      state.selection.finish = fLL;
+      state.selection.finishM = L.marker(fLL, { title:'Finish', icon: L.divIcon({className:'', html:'<div style="padding:4px 8px;background:#ef4444;color:#fff;border-radius:4px;font-weight:700;">Finish</div>'}) }).addTo(selectionLayer);
+      state.selection.finishLink = L.polyline([state.selection.finishRaw, fLL], { color:'#ef4444', weight:2, opacity:0.8, dashArray:'4 4' }).addTo(selectionLayer);
       computeAndDrawRoute(state.selection.start, state.selection.finish);
       state.selection.active = false;
       cancelSelBtn.disabled = true;
