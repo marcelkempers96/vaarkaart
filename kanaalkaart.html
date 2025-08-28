@@ -600,11 +600,12 @@ function initApp() {
     const mapTabs = { main:[tabMainBtn, tabMain], boat:[tabBoatBtn, tabBoat], saved:[tabSavedBtn, tabSaved], reports:[tabReportsBtn, tabReports] };
     for (const key of Object.keys(mapTabs)) { const [btn, pane] = mapTabs[key]; btn.setAttribute('aria-selected','false'); pane.classList.remove('active'); }
     const [btn, pane] = mapTabs[which]; btn.setAttribute('aria-selected','true'); pane.classList.add('active');
+    if (which === 'reports') { renderReports(); }
   }
   tabMainBtn.addEventListener('click', () => activateTab('main'));
   tabBoatBtn.addEventListener('click', () => activateTab('boat'));
   tabSavedBtn.addEventListener('click', () => activateTab('saved'));
-  tabReportsBtn.addEventListener('click', () => activateTab('reports'));
+  tabReportsBtn.addEventListener('click', () => { activateTab('reports'); updateReportUI(); });
 
   map.on('click', onMapClick);
 
