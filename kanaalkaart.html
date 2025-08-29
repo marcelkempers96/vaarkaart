@@ -571,9 +571,8 @@ function initApp() {
   }
 
   function setReportsVisible(on){ if (on) { reportsLayer.addTo(map); renderReports(); } else { map.removeLayer(reportsLayer); } }
-  toggleReports.addEventListener('change', () => { setReportsVisible(toggleReports.checked); if (toggleReports.checked) { syncFromRemote(true); startReportsPolling(); } else { if (reportsPollTimer) clearInterval(reportsPollTimer); } });
+  toggleReports.addEventListener('change', () => setReportsVisible(toggleReports.checked));
   setReportsVisible(toggleReports ? toggleReports.checked : true);
-  if (toggleReports && toggleReports.checked) { syncFromRemote(true); startReportsPolling(); }
   renderReports();
   // keep draft marker visible regardless of toggle
   if (draftLayer) draftLayer.addTo(map);
@@ -1283,29 +1282,7 @@ function initApp() {
   const SUPABASE_URL = 'https://boqvponsrxneibgvjqri.supabase.co';
   const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJvcXZwb25zcnhuZWliZ3ZqcXJpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY0MjIzNDMsImV4cCI6MjA3MTk5ODM0M30.COzREm9FmWU6mbcpdIaFsNrnIgJ8J6Pa1dAf-TRdKBA';
   const supabase = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
-  const REPORTS_POLL_MS = 30000; // 30s
-  let reportsPollTimer = null;
-  async function syncFromRemote(authoritative=true){
-    try {
-      const remote = await netListReports();
-      if (remote && Array.isArray(remote)) {
-        if (authoritative) { reportsMem = remote; }
-        else {
-          const byKey = new Map();
-          const makeKey = (r)=> String(r.id||`${Number(r.lat).toFixed(5)}|${Number(r.lng).toFixed(5)}|${r.category}|${r.ts}`);
-          for (const r of remote) byKey.set(makeKey(r), r);
-          for (const r of (Array.isArray(reportsMem)?reportsMem:[])) if (!byKey.has(makeKey(r))) byKey.set(makeKey(r), r);
-          reportsMem = Array.from(byKey.values());
-        }
-        setStoredReports(reportsMem);
-        renderReports();
-      }
-    } catch(e){ console.warn('Remote sync failed', e); }
-  }
-  function startReportsPolling(){
-    if (reportsPollTimer) clearInterval(reportsPollTimer);
-    reportsPollTimer = setInterval(() => { if (toggleReports && toggleReports.checked) syncFromRemote(true); }, REPORTS_POLL_MS);
-  }
+  
   async function netListReports(){
     if (!supabase) return null;
     const { data, error } = await supabase.from('reports').select('*').order('ts', { ascending:false }).limit(1000);
