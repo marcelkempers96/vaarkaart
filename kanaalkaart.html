@@ -379,6 +379,9 @@ function initApp() {
   const map = L.map('map', { zoomControl: true }).setView([52.1, 5.3], 8);
   L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
   L.control.scale({ metric: true, imperial: false }).addTo(map);
+  // High z-index pane for reports so dots aren't hidden on mobile
+  map.createPane('reportsPane');
+  map.getPane('reportsPane').style.zIndex = 700;
 
   // Layers
   const waterwaysLayer = L.geoJSON(null, { style: () => ({ color: '#3b82f6', weight: 2, opacity: 0.9 }) }).addTo(map);
@@ -479,11 +482,22 @@ function initApp() {
   const reportLocText = document.getElementById('reportLocText');
   const reportsList = document.getElementById('reportsList');
 
-  const REPORTS_KEY = 'vaarapp-reports-v1';
+  const REPORTS_KEY = 'vaarapp-reports-v2';
   let reportDraft = { latlng: null, marker: null };
 
-  function getStoredReports(){ try { return JSON.parse(localStorage.getItem(REPORTS_KEY)||'[]'); } catch { return []; } }
-  function setStoredReports(arr){ try { localStorage.setItem(REPORTS_KEY, JSON.stringify(arr)); } catch {} }
+  function getStoredReports(){
+    try {
+      const raw = localStorage.getItem(REPORTS_KEY);
+      const arr = raw ? JSON.parse(raw) : [];
+      return Array.isArray(arr) ? arr : [];
+    } catch { return []; }
+  }
+  function setStoredReports(arr){
+    try {
+      const safe = Array.isArray(arr) ? arr : [];
+      localStorage.setItem(REPORTS_KEY, JSON.stringify(safe));
+    } catch {}
+  }
   function addReport(r){ const arr = getStoredReports(); arr.push(r); setStoredReports(arr); }
   function renderReports(){
     reportsLayer.clearLayers();
@@ -515,7 +529,7 @@ function initApp() {
     }
     for (const r of arr) {
       const color = '#8b5cf6';
-      const m = L.circleMarker([r.lat, r.lng], { radius: 6, color, weight: 2, fillOpacity: 0.8 });
+      const m = L.circleMarker([r.lat, r.lng], { radius: 6, color, weight: 2, fillOpacity: 0.8, pane: 'reportsPane' });
       const dict = I18N[LANG];
       const label = (dict.reportCats && dict.reportCats[r.category]) ? dict.reportCats[r.category] : r.category;
       const html = `<div><strong>${label}</strong>${r.note?`<div>${r.note}</div>`:''}<div>${new Date(r.ts).toLocaleString()}</div>` +
@@ -545,15 +559,30 @@ function initApp() {
   // keep draft marker visible regardless of toggle
   if (draftLayer) draftLayer.addTo(map);
 
-  // Initial load from Supabase (if available)
+  // Initial load + two-way sync with Supabase (if available)
   (async () => {
     try {
       const remote = await netListReports();
+      const local = getStoredReports();
       if (remote && Array.isArray(remote)) {
-        setStoredReports(remote);
+        const byKey = new Map();
+        const makeKey = (r)=> String(r.id||`${Number(r.lat).toFixed(5)}|${Number(r.lng).toFixed(5)}|${r.category}|${r.ts}`);
+        for (const r of remote) byKey.set(makeKey(r), r);
+        for (const r of local) if (!byKey.has(makeKey(r))) byKey.set(makeKey(r), r);
+        const merged = Array.from(byKey.values());
+        setStoredReports(merged);
+        renderReports();
+        // backfill: try to push any local-only reports to remote
+        for (const r of merged) {
+          const key = makeKey(r);
+          const inRemote = remote.some(x => makeKey(x) === key);
+          if (!inRemote) { try { await netCreateReport(r); } catch {} }
+        }
+      } else {
+        // remote not available — keep local only
         renderReports();
       }
-    } catch(e){ console.warn('Failed to sync remote reports', e); }
+    } catch(e){ console.warn('Failed to sync remote reports', e); renderReports(); }
   })();
 
   function populateReportCategories(){
