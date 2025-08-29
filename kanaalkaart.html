@@ -137,8 +137,8 @@
 
     <div class="legend small" style="margin-top:8px;">
       <span class="key"><span class="swatch blue"></span> <span data-i18n="waterways">Waterways</span></span>
-      <span class="key"><span style="font-size:14px;line-height:14px;">⛓️</span> <span data-i18n="locks">Locks</span></span>
-      <span class="key"><span style="font-size:14px;line-height:14px;">⛩️</span> <span data-i18n="bridges">Bridges</span></span>
+      <span class="key"><span style="font-size:14px;line-height:14px;">🚦</span> <span data-i18n="locks">Locks</span></span>
+      <span class="key"><span class="swatch green"></span> <span data-i18n="bridges">Bridges</span></span>
       <span class="key"><span style="font-size:14px;line-height:14px;">⚓</span> <span data-i18n="docking">Docking</span></span>
       <span class="key"><span style="font-size:14px;line-height:14px;">⚠️</span> Reports</span>
     </div>
@@ -914,8 +914,13 @@ function initApp() {
       const constrained = limitWidth !== null && boatW > limitWidth;
       const color = kind === 'lock' ? (constrained ? '#ef4444' : '#fb923c') : (constrained ? '#ef4444' : '#10b981');
 
-      const emoji = kind === 'lock' ? '⛓️' : '⛩️';
-      const marker = L.marker([lat, lon], { icon: L.divIcon({ className:'', html:`<div style="font-size:16px;line-height:16px;">${emoji}</div>`, iconSize:[16,16], iconAnchor:[8,8] }) });
+      let marker;
+      if (kind === 'lock') {
+        const emoji = '🚦';
+        marker = L.marker([lat, lon], { icon: L.divIcon({ className:'', html:`<div style="font-size:16px;line-height:16px;">${emoji}</div>`, iconSize:[16,16], iconAnchor:[8,8] }) });
+      } else {
+        marker = L.circleMarker([lat, lon], { radius: 6, color: '#10b981', weight: 2, fillOpacity: 0.8 });
+      }
       const title = kind === 'lock' ? 'Lock' : 'Bridge';
       const details = Object.entries(tags).map(([k,v]) => `<div><strong>${k}</strong>: ${v}</div>`).slice(0, 20).join('');
       const constraintTxt = limitWidth ? `<div><em>Width limit:</em> ${limitWidth} m</div>` : '';
