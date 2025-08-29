@@ -595,7 +595,7 @@ function initApp() {
           try { await netDeleteReport(id); } catch {}
           const list = getStoredReports().filter(x=>String(x.id)!==String(id));
           setStoredReports(list);
-          renderReports();
+          await refreshReportsOnce();
         });
       });
     }
@@ -621,7 +621,7 @@ function initApp() {
             try { await netDeleteReport(id); } catch {}
             const list = getStoredReports().filter(x=>String(x.id)!==String(id));
             setStoredReports(list);
-            renderReports();
+            await refreshReportsOnce();
             map.closePopup();
           });
         }
