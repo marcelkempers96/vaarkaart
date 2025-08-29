@@ -571,8 +571,19 @@ function initApp() {
   }
 
   function setReportsVisible(on){ if (on) { reportsLayer.addTo(map); renderReports(); } else { map.removeLayer(reportsLayer); } }
-  toggleReports.addEventListener('change', () => setReportsVisible(toggleReports.checked));
+  async function refreshReportsOnce(){
+    try {
+      const remote = await netListReports();
+      if (remote && Array.isArray(remote)) { reportsMem = remote; setStoredReports(reportsMem); renderReports(); }
+    } catch(e){ console.warn('Refresh reports failed', e); }
+  }
+  toggleReports.addEventListener('change', async () => {
+    const on = toggleReports.checked;
+    setReportsVisible(on);
+    if (on) { await refreshReportsOnce(); }
+  });
   setReportsVisible(toggleReports ? toggleReports.checked : true);
+  if (toggleReports && toggleReports.checked) { refreshReportsOnce(); }
   renderReports();
   // keep draft marker visible regardless of toggle
   if (draftLayer) draftLayer.addTo(map);
