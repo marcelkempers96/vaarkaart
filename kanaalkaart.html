@@ -508,10 +508,14 @@ function initApp() {
       reportsMem = Array.isArray(arr) ? arr : [];
     }
   }
-  function addReport(r){ const arr = getStoredReports(); arr.push(r); setStoredReports(arr); }
+  function addReport(r){
+    reportsMem = Array.isArray(reportsMem) ? reportsMem : [];
+    reportsMem.push(r);
+    setStoredReports(reportsMem);
+  }
   function renderReports(){
     reportsLayer.clearLayers();
-    const arr = getStoredReports();
+    const arr = (Array.isArray(reportsMem) && reportsMem.length) ? reportsMem : getStoredReports();
     if (reportsCounts) {
       const remoteNote = window.supabase ? '' : ' (offline)';
       reportsCounts.textContent = `Showing ${arr.length} reports${remoteNote}`;
@@ -584,6 +588,7 @@ function initApp() {
         for (const r of remote) byKey.set(makeKey(r), r);
         for (const r of local) if (!byKey.has(makeKey(r))) byKey.set(makeKey(r), r);
         const merged = Array.from(byKey.values());
+        reportsMem = merged;
         setStoredReports(merged);
         renderReports();
         // backfill: try to push any local-only reports to remote
@@ -594,6 +599,7 @@ function initApp() {
         }
       } else {
         // remote not available — keep local only
+        reportsMem = local;
         renderReports();
       }
     } catch(e){ console.warn('Failed to sync remote reports', e); renderReports(); }
@@ -640,11 +646,10 @@ function initApp() {
       ts: Date.now(),
       mine: true
     };
-    // Try remote first
-    let ok = false;
-    try { ok = await netCreateReport(rec); } catch {}
+    // Try remote first but update UI immediately regardless
     addReport(rec);
     renderReports();
+    try { await netCreateReport(rec); } catch {}
     // Ensure layer is visible so user sees it immediately
     setReportsVisible(true);
     // clear draft
