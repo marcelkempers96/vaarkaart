@@ -900,6 +900,8 @@ function initApp() {
   function renderPOIs(data) {
     locksLayer.clearLayers(); bridgesLayer.clearLayers();
     const boatW = state.boat.width;
+    const wantLocks = !!(typeof toggleLocks !== 'undefined' && toggleLocks && toggleLocks.checked);
+    const wantBridges = !!(typeof toggleBridges !== 'undefined' && toggleBridges && toggleBridges.checked);
     for (const el of (data.elements || [])) {
       let lat, lon, tags = el.tags || {};
       if (el.type === 'node') { lat = el.lat; lon = el.lon; }
@@ -907,6 +909,9 @@ function initApp() {
       else continue;
 
       let kind = (tags.waterway === 'lock_gate' || tags.lock === 'yes') ? 'lock' : 'bridge';
+
+      if (kind === 'lock' && !wantLocks) continue;
+      if (kind === 'bridge' && !wantBridges) continue;
 
       const wTags = ['maxwidth','boat:width','maxbeam'];
       let limitWidth = null;
@@ -1002,6 +1007,13 @@ function initApp() {
 
   let fetchTimer = null;
   map.on('moveend zoomend', () => {
+    // Ensure layers reflect toggles immediately (avoid stale visibility)
+    if (!toggleLocks.checked) { locksLayer.clearLayers(); try { map.removeLayer(locksLayer); } catch {} }
+    else { try { locksLayer.addTo(map); } catch {} }
+    if (!toggleBridges.checked) { bridgesLayer.clearLayers(); try { map.removeLayer(bridgesLayer); } catch {} }
+    else { try { bridgesLayer.addTo(map); } catch {} }
+    if (!document.getElementById('toggleDock').checked) { dockLayer.clearLayers(); try { map.removeLayer(dockLayer); } catch {} }
+    else { try { dockLayer.addTo(map); } catch {} }
     if (!toggleWaterways.checked && !toggleLocks.checked && !toggleBridges.checked && !document.getElementById('toggleDock').checked) return;
     if (map.getZoom() < 12) return;
     const key = tileKeyFromBounds(map.getBounds());
