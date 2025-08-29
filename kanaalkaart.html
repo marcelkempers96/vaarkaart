@@ -485,8 +485,12 @@ function initApp() {
   const reportsCounts = document.getElementById('reportsCounts');
 
   const REPORTS_KEY = 'vaarapp-reports-v2';
+  const OWNED_KEY = 'vaarapp-owned-report-ids';
   let reportsMem = [];
   let reportDraft = { latlng: null, marker: null };
+  function getOwnedIds(){ try { const a = JSON.parse(localStorage.getItem(OWNED_KEY)||'[]'); return Array.isArray(a)? new Set(a) : new Set(); } catch { return new Set(); } }
+  function setOwnedIds(set){ try { localStorage.setItem(OWNED_KEY, JSON.stringify(Array.from(set))); } catch {} }
+  const ownedIds = getOwnedIds();
 
   function getStoredReports(){
     try {
@@ -526,7 +530,7 @@ function initApp() {
       reportsList.innerHTML = arr.map(r=>{
         const label = (dict.reportCats && dict.reportCats[r.category]) ? dict.reportCats[r.category] : r.category;
         const loc = `${r.lat.toFixed(5)}, ${r.lng.toFixed(5)}`;
-        const delBtn = `<button data-del-report-list="${r.id}" class="warn" style="padding:2px 6px;margin-left:8px;">${dict.deleteReport||'Delete report'}</button>`;
+        const delBtn = (r.mine===true || ownedIds.has(String(r.id))) ? `<button data-del-report-list="${r.id}" class="warn" style="padding:2px 6px;margin-left:8px;">${dict.deleteReport||'Delete report'}</button>` : '';
         return `<div style="display:flex;align-items:center;gap:8px;margin:4px 0;">
           <span style="font-weight:700;">${label}</span>
           <span>${loc}</span>
@@ -550,8 +554,9 @@ function initApp() {
       const m = L.marker([r.lat, r.lng], { icon, pane: 'reportsPane', zIndexOffset: 1200 });
       const dict = I18N[LANG];
       const label = (dict.reportCats && dict.reportCats[r.category]) ? dict.reportCats[r.category] : r.category;
+      const canDel = (r.mine===true || ownedIds.has(String(r.id)));
       const html = `<div><strong>${label}</strong>${r.note?`<div>${r.note}</div>`:''}<div>${new Date(r.ts).toLocaleString()}</div>` +
-        `<div style="margin-top:6px;"><button data-del-report="${r.id}" class="warn" style="padding:4px 8px;">${dict.deleteReport||'Delete report'}</button></div></div>`;
+        `${canDel?`<div style=\"margin-top:6px;\"><button data-del-report=\"${r.id}\" class=\"warn\" style=\"padding:4px 8px;\">${dict.deleteReport||'Delete report'}</button></div>`:''}</div>`;
       m.on('popupopen', (ev)=>{
         const btn = ev.popup._contentNode.querySelector('[data-del-report]');
         if (btn) {
@@ -657,6 +662,7 @@ function initApp() {
       ts: Date.now(),
       mine: true
     };
+    ownedIds.add(String(rec.id)); setOwnedIds(ownedIds);
     // Try remote first but update UI immediately regardless
     addReport(rec);
     renderReports();
