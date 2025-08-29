@@ -209,6 +209,7 @@
     </div>
     <p class="small"><span data-i18n="location">Location</span>: <span id="reportLocText">—</span></p>
     <h3 style="margin:12px 0 6px 0;font-size:14px;">Reports</h3>
+    <p id="reportsCounts" class="small" style="opacity:.7"></p>
     <div id="reportsList" class="small"></div>
   </div>
 </div>
@@ -481,27 +482,40 @@ function initApp() {
   const submitReportBtn = document.getElementById('submitReportBtn');
   const reportLocText = document.getElementById('reportLocText');
   const reportsList = document.getElementById('reportsList');
+  const reportsCounts = document.getElementById('reportsCounts');
 
   const REPORTS_KEY = 'vaarapp-reports-v2';
+  let reportsMem = [];
   let reportDraft = { latlng: null, marker: null };
 
   function getStoredReports(){
     try {
       const raw = localStorage.getItem(REPORTS_KEY);
       const arr = raw ? JSON.parse(raw) : [];
-      return Array.isArray(arr) ? arr : [];
-    } catch { return []; }
+      const out = Array.isArray(arr) ? arr : [];
+      reportsMem = out;
+      return out;
+    } catch {
+      return reportsMem;
+    }
   }
   function setStoredReports(arr){
     try {
       const safe = Array.isArray(arr) ? arr : [];
       localStorage.setItem(REPORTS_KEY, JSON.stringify(safe));
-    } catch {}
+      reportsMem = safe;
+    } catch {
+      reportsMem = Array.isArray(arr) ? arr : [];
+    }
   }
   function addReport(r){ const arr = getStoredReports(); arr.push(r); setStoredReports(arr); }
   function renderReports(){
     reportsLayer.clearLayers();
     const arr = getStoredReports();
+    if (reportsCounts) {
+      const remoteNote = window.supabase ? '' : ' (offline)';
+      reportsCounts.textContent = `Showing ${arr.length} reports${remoteNote}`;
+    }
     // list in Reports tab
     if (reportsList) {
       const dict = I18N[LANG];
