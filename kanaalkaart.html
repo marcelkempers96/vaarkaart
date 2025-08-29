@@ -634,12 +634,12 @@ function initApp() {
           else if (prev==='down' && type==='up') { deltaDown = -1; deltaUp = 1; }
           votesMap[id] = type; setVotesMap(votesMap);
           for (const it of reportsMem){ if (String(it.id)===String(id)) { it.up_count = (it.up_count||0)+deltaUp; it.down_count=(it.down_count||0)+deltaDown; break; } }
-          const upEl = root.querySelector('[data-up-count]'); if (upEl) upEl.textContent = ' ' + ((parseInt(upEl.textContent)||0) + deltaUp);
-          const dnEl = root.querySelector('[data-down-count]'); if (dnEl) dnEl.textContent = ' ' + ((parseInt(dnEl.textContent)||0) + deltaDown);
+          const upEl = root.querySelector('[data-up-count]'); if (upEl) { const cur = parseInt(upEl.textContent)||0; const nxt = Math.max(0, cur + deltaUp); upEl.textContent = ' ' + nxt; }
+          const dnEl = root.querySelector('[data-down-count]'); if (dnEl) { const cur = parseInt(dnEl.textContent)||0; const nxt = Math.max(0, cur + deltaDown); dnEl.textContent = ' ' + nxt; }
           try { await netUpsertVote(id, deviceId, type); } catch {}
         }
-        const upBtn = root.querySelector('[data-vote-up]'); if (upBtn) upBtn.addEventListener('click', ()=> applyVote(upBtn.getAttribute('data-vote-up'), 'up'));
-        const dnBtn = root.querySelector('[data-vote-down]'); if (dnBtn) dnBtn.addEventListener('click', ()=> applyVote(dnBtn.getAttribute('data-vote-down'), 'down'));
+        const upBtn = root.querySelector('[data-vote-up]'); if (upBtn) upBtn.addEventListener('click', (ev)=>{ ev.preventDefault(); ev.stopPropagation(); upBtn.disabled = true; applyVote(upBtn.getAttribute('data-vote-up'), 'up').finally(()=>{ setTimeout(()=>{ upBtn.disabled=false; }, 200); }); });
+        const dnBtn = root.querySelector('[data-vote-down]'); if (dnBtn) dnBtn.addEventListener('click', (ev)=>{ ev.preventDefault(); ev.stopPropagation(); dnBtn.disabled = true; applyVote(dnBtn.getAttribute('data-vote-down'), 'down').finally(()=>{ setTimeout(()=>{ dnBtn.disabled=false; }, 200); }); });
       });
       m.bindPopup(html);
       reportsLayer.addLayer(m);
