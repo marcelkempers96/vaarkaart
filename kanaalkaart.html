@@ -376,6 +376,31 @@ function initApp() {
   });
   applyI18N();
 
+  // Supabase client (define early so initial refresh can use it)
+  const SUPABASE_URL = 'https://boqvponsrxneibgvjqri.supabase.co';
+  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJvcXZwb25zcnhuZWliZ3ZqcXJpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY0MjIzNDMsImV4cCI6MjA3MTk5ODM0M30.COzREm9FmWU6mbcpdIaFsNrnIgJ8J6Pa1dAf-TRdKBA';
+  const supabase = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+  async function netListReports(){
+    if (!supabase) return null;
+    const { data, error } = await supabase.from('reports').select('*').order('ts', { ascending:false }).limit(1000);
+    if (error) { console.warn('Supabase list error', error); return null; }
+    return data?.map(r=>({ id:String(r.id||r.uuid||r.ts), lat:r.lat, lng:r.lng, category:r.category, note:r.note||'', ts:r.ts||Date.now(), mine:false }))||[];
+  }
+  async function netCreateReport(rec){
+    if (!supabase) return false;
+    const payload = { lat: rec.lat, lng: rec.lng, category: rec.category, note: rec.note, ts: rec.ts };
+    const { data, error } = await supabase.from('reports').insert(payload).select();
+    if (error) { console.warn('Supabase insert error', error); return false; }
+    if (data && data[0]) { rec.id = String(data[0].id||data[0].uuid||rec.id); }
+    return true;
+  }
+  async function netDeleteReport(id){
+    if (!supabase) return false;
+    const { error } = await supabase.from('reports').delete().eq('id', id);
+    if (error) { console.warn('Supabase delete error', error); return false; }
+    return true;
+  }
+
   // Map
   const map = L.map('map', { zoomControl: true }).setView([52.1, 5.3], 8);
   L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
@@ -587,8 +612,9 @@ function initApp() {
     setReportsVisible(on);
     if (on) { await refreshReportsOnce(); }
   });
-  setReportsVisible(toggleReports ? toggleReports.checked : true);
-  if (toggleReports && toggleReports.checked) { refreshReportsOnce(); }
+  setReportsVisible(true);
+  // Force refresh on startup for iOS browsers that may ignore initial toggle state
+  refreshReportsOnce();
   renderReports();
   // keep draft marker visible regardless of toggle
   if (draftLayer) draftLayer.addTo(map);
@@ -1294,32 +1320,6 @@ function initApp() {
   try {
     console.assert(!!window.L, 'Leaflet should be present');
   } catch(e){ console.warn('Diagnostics failed:', e); }
-
-  // Supabase client
-  const SUPABASE_URL = 'https://boqvponsrxneibgvjqri.supabase.co';
-  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJvcXZwb25zcnhuZWliZ3ZqcXJpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY0MjIzNDMsImV4cCI6MjA3MTk5ODM0M30.COzREm9FmWU6mbcpdIaFsNrnIgJ8J6Pa1dAf-TRdKBA';
-  const supabase = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
-  
-  async function netListReports(){
-    if (!supabase) return null;
-    const { data, error } = await supabase.from('reports').select('*').order('ts', { ascending:false }).limit(1000);
-    if (error) { console.warn('Supabase list error', error); return null; }
-    return data?.map(r=>({ id:String(r.id||r.uuid||r.ts), lat:r.lat, lng:r.lng, category:r.category, note:r.note||'', ts:r.ts||Date.now(), mine:false }))||[];
-  }
-  async function netCreateReport(rec){
-    if (!supabase) return false;
-    const payload = { lat: rec.lat, lng: rec.lng, category: rec.category, note: rec.note, ts: rec.ts };
-    const { data, error } = await supabase.from('reports').insert(payload).select();
-    if (error) { console.warn('Supabase insert error', error); return false; }
-    if (data && data[0]) { rec.id = String(data[0].id||data[0].uuid||rec.id); }
-    return true;
-  }
-  async function netDeleteReport(id){
-    if (!supabase) return false;
-    const { error } = await supabase.from('reports').delete().eq('id', id);
-    if (error) { console.warn('Supabase delete error', error); return false; }
-    return true;
-  }
 }
 </script>
 </body>
