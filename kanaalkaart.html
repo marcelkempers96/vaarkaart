@@ -386,6 +386,12 @@ function initApp() {
     if (error) { console.warn('Supabase list error', error); return null; }
     return data?.map(r=>({ id:String(r.id||r.uuid||r.ts), lat:r.lat, lng:r.lng, category:r.category, note:r.note||'', ts:r.ts||Date.now(), mine:false }))||[];
   }
+  async function netListVotes(){
+    if (!supabase) return null;
+    const { data, error } = await supabase.from('report_votes').select('report_id,vote').limit(50000);
+    if (error) { console.warn('Supabase votes list error', error); return null; }
+    return Array.isArray(data) ? data : [];
+  }
   async function netCreateReport(rec){
     if (!supabase) return false;
     const payload = { lat: rec.lat, lng: rec.lng, category: rec.category, note: rec.note, ts: rec.ts };
@@ -399,6 +405,16 @@ function initApp() {
     const { error } = await supabase.from('reports').delete().eq('id', id);
     if (error) { console.warn('Supabase delete error', error); return false; }
     return true;
+  }
+  async function netUpsertVote(reportId, deviceId, vote){
+    if (!supabase) return false;
+    try {
+      const { error } = await supabase
+        .from('report_votes')
+        .upsert({ report_id: reportId, device_id: deviceId, vote }, { onConflict: 'report_id,device_id' });
+      if (error) { console.warn('Supabase upsert vote error', error); return false; }
+      return true;
+    } catch(e){ console.warn('Supabase upsert vote error', e); return false; }
   }
 
   // Map
@@ -512,6 +528,7 @@ function initApp() {
   const REPORTS_KEY = 'vaarapp-reports-v2';
   const OWNED_KEY = 'vaarapp-owned-report-ids';
   const VOTE_KEY = 'vaarapp-report-votes';
+  const DEVICE_KEY = 'vaarapp-device-id';
   let reportsMem = [];
   let reportDraft = { latlng: null, marker: null };
   function getOwnedIds(){ try { const a = JSON.parse(localStorage.getItem(OWNED_KEY)||'[]'); return Array.isArray(a)? new Set(a) : new Set(); } catch { return new Set(); } }
@@ -520,6 +537,10 @@ function initApp() {
   function getVotesMap(){ try { const o = JSON.parse(localStorage.getItem(VOTE_KEY)||'{}'); return (o && typeof o==='object')? o : {}; } catch { return {}; } }
   function setVotesMap(m){ try { localStorage.setItem(VOTE_KEY, JSON.stringify(m)); } catch {} }
   const votesMap = getVotesMap();
+  function getDeviceId(){
+    try { let id = localStorage.getItem(DEVICE_KEY); if (!id) { id = (Date.now().toString(36)+Math.random().toString(36).slice(2,10)); localStorage.setItem(DEVICE_KEY, id); } return id; } catch { return 'anon'; }
+  }
+  const deviceId = getDeviceId();
 
   function getStoredReports(){
     try {
@@ -615,15 +636,7 @@ function initApp() {
           for (const it of reportsMem){ if (String(it.id)===String(id)) { it.up_count = (it.up_count||0)+deltaUp; it.down_count=(it.down_count||0)+deltaDown; break; } }
           const upEl = root.querySelector('[data-up-count]'); if (upEl) upEl.textContent = ' ' + ((parseInt(upEl.textContent)||0) + deltaUp);
           const dnEl = root.querySelector('[data-down-count]'); if (dnEl) dnEl.textContent = ' ' + ((parseInt(dnEl.textContent)||0) + deltaDown);
-          try {
-            if (supabase) {
-              const { data, error } = await supabase.from('reports').select('up_count,down_count').eq('id', id).single();
-              if (!error) {
-                const upc = (data?.up_count||0)+deltaUp, dnc=(data?.down_count||0)+deltaDown;
-                await supabase.from('reports').update({ up_count: upc, down_count: dnc }).eq('id', id);
-              }
-            }
-          } catch {}
+          try { await netUpsertVote(id, deviceId, type); } catch {}
         }
         const upBtn = root.querySelector('[data-vote-up]'); if (upBtn) upBtn.addEventListener('click', ()=> applyVote(upBtn.getAttribute('data-vote-up'), 'up'));
         const dnBtn = root.querySelector('[data-vote-down]'); if (dnBtn) dnBtn.addEventListener('click', ()=> applyVote(dnBtn.getAttribute('data-vote-down'), 'down'));
@@ -637,7 +650,20 @@ function initApp() {
   async function refreshReportsOnce(){
     try {
       const remote = await netListReports();
-      if (remote && Array.isArray(remote)) { reportsMem = remote; setStoredReports(reportsMem); renderReports(); }
+      const votes = await netListVotes();
+      if (remote && Array.isArray(remote)) {
+        // reduce votes into counts per report_id
+        const upCounts = new Map(), downCounts = new Map();
+        if (Array.isArray(votes)) {
+          for (const v of votes) {
+            const rid = String(v.report_id);
+            if (v.vote === 'up') upCounts.set(rid, (upCounts.get(rid)||0)+1);
+            else if (v.vote === 'down') downCounts.set(rid, (downCounts.get(rid)||0)+1);
+          }
+        }
+        for (const r of remote) { const k = String(r.id); r.up_count = upCounts.get(k)||0; r.down_count = downCounts.get(k)||0; }
+        reportsMem = remote; setStoredReports(reportsMem); renderReports();
+      }
     } catch(e){ console.warn('Refresh reports failed', e); }
   }
   toggleReports.addEventListener('change', async () => {
